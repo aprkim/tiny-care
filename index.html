@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tiny Care – Ask your partner to cover</title>
+    <!-- Build: 2026-05-24-v1 -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <meta property="og:title" content="Tiny Care">
+    <meta property="og:description" content="Flag drop-off and pick-up slots when you need your partner to cover. Calm, quiet coordination for two parents.">
+    <meta property="og:type" content="website">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #F7FAFC;
+            --card: #ffffff;
+            --soft: #f0f4f3;
+            --text: #1e293b;
+            --text-strong: #333;
+            --muted: #64748b;
+            --muted-light: #94A3B8;
+            --border: #E2E8F0;
+            --border-soft: #EEF1F5;
+            --accent: #BF3143;
+            --accent-soft: #FEF2F2;
+            --accent-hover: #A02838;
+            --radius: 16px;
+
+            /* Parent A — sage green (the "teal" in spec) */
+            --teal-bg: #E7F1EB;
+            --teal-border: #C8DCD0;
+            --teal-text: #3F6B52;
+            --teal-strong: #2F5A43;
+
+            /* Parent B — purple */
+            --purple-bg: #F7F5FA;
+            --purple-border: #DDD6E5;
+            --purple-text: #6E6282;
+            --purple-strong: #564B6A;
+
+            /* Conflict — red */
+            --conflict-bg: #FEF2F2;
+            --conflict-border: #BF3143;
+            --conflict-text: #BF3143;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        input:focus, button:focus, textarea:focus { outline: none; }
+
+        /* ==================== SCREENS ==================== */
+        .screen { display: none; min-height: 100vh; }
+        .screen.active { display: block; }
+        .screen.onboarding.active { display: flex; }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ==================== ONBOARDING ==================== */
+        .onboarding {
+            padding: 32px 20px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        /* display:flex only when active — keeps inactive screens hidden via .screen rule */
+
+        .onboarding-inner {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .onboarding-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .onboarding-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: var(--accent-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .onboarding-logo svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--accent);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .onboarding-title {
+            font-size: 28px;
+            font-weight: 650;
+            color: var(--text-strong);
+            margin-bottom: 8px;
+        }
+
+        .onboarding-subtitle {
+            font-size: 14px;
+            font-weight: 400;
+            color: #6A6F77;
+            line-height: 1.5;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+
+        .setup-form {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .setup-form + .setup-form { margin-top: 16px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            background: var(--card);
+            color: var(--text);
+            transition: all 0.18s;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            background: #FEF7F8;
+        }
+
+        .form-input[readonly] {
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled {
+            background: #e2e8f0;
+            color: #94A3B8;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--soft);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: #e6ecea; }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { background: var(--soft); color: var(--text); }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: var(--muted-light);
+            font-size: 12px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ==================== INVITE / JOIN ==================== */
+        .invite-link-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .invite-link-row .form-input { flex: 1; }
+
+        .copy-btn {
+            padding: 0 14px;
+            background: var(--soft);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .copy-btn:hover { background: #e6ecea; }
+        .copy-btn.copied { background: var(--teal-bg); color: var(--teal-text); border-color: var(--teal-border); }
+
+        .invite-hint {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .join-greeting {
+            background: var(--teal-bg);
+            border: 1px solid var(--teal-border);
+            color: var(--teal-strong);
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .join-greeting strong { font-weight: 700; }
+
+        .invite-expired {
+            background: var(--accent-soft);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        /* ==================== APP HEADER ==================== */
+        .suite-back-link {
+            display: inline-block;
+            color: var(--muted-light);
+            text-decoration: none;
+            font-size: 13px;
+            margin-bottom: 10px;
+            transition: color 0.18s;
+        }
+        .suite-back-link:hover { color: var(--muted); text-decoration: underline; }
+
+        .app-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .app-title {
+            font-size: 26px;
+            font-weight: 650;
+            color: var(--text-strong);
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
+        }
+
+        .app-subtitle {
+            font-size: 13px;
+            color: var(--muted-light);
+            font-weight: 400;
+        }
+
+        .icon-btn {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all 0.18s;
+            flex-shrink: 0;
+        }
+        .icon-btn:hover { background: var(--soft); color: var(--text); }
+        .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* ==================== LEGEND ==================== */
+        .legend {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: var(--muted);
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-chip {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1.5px solid;
+        }
+        .legend-chip.you-chip { background: var(--teal-bg); border-color: var(--teal-border); }
+        .legend-chip.partner-chip { background: var(--purple-bg); border-color: var(--purple-border); }
+        .legend-chip.you-purple { background: var(--purple-bg); border-color: var(--purple-border); }
+        .legend-chip.partner-teal { background: var(--teal-bg); border-color: var(--teal-border); }
+        .legend-chip.conflict-chip { background: var(--conflict-bg); border-color: var(--conflict-border); }
+        .legend-chip.empty-chip {
+            background: transparent;
+            border-style: dashed;
+            border-color: var(--border);
+        }
+
+        /* ==================== WEEK BAR ==================== */
+        .week-bar {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .week-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .week-nav {
+            display: flex;
+            gap: 6px;
+        }
+
+        .week-nav-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all 0.18s;
+        }
+        .week-nav-btn:hover { background: var(--soft); color: var(--text); }
+        .week-nav-btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .week-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .today-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0 10px;
+            height: 32px;
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .today-btn:hover { background: var(--soft); color: var(--text); }
+
+        /* ==================== GRID ==================== */
+        .grid {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .grid-head {
+            display: grid;
+            grid-template-columns: 72px 1fr 1fr;
+            background: var(--soft);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .grid-head-cell {
+            padding: 10px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+        }
+        .grid-head-cell:not(:first-child) { border-left: 1px solid var(--border); }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: 72px 1fr 1fr;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .grid-row:last-child { border-bottom: none; }
+
+        .day-cell {
+            padding: 14px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2px;
+            background: #FCFDFD;
+        }
+        .day-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            text-transform: capitalize;
+        }
+        .day-date {
+            font-size: 11px;
+            color: var(--muted-light);
+        }
+        .day-cell.is-today .day-name { color: var(--accent); }
+        .day-cell.is-today .day-date { color: var(--accent); }
+        .day-cell.is-past { opacity: 0.55; }
+
+        .slot {
+            padding: 12px 10px;
+            border-left: 1px solid var(--border-soft);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.18s;
+            min-height: 64px;
+            position: relative;
+            background: transparent;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            text-align: left;
+            font-family: inherit;
+        }
+        .slot::before {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            border-radius: 10px;
+            border: 1.5px dashed var(--border);
+            pointer-events: none;
+            transition: all 0.18s;
+        }
+        .slot-name {
+            position: relative;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2;
+        }
+        .slot-hint {
+            position: relative;
+            font-size: 11px;
+            color: var(--muted-light);
+            line-height: 1.2;
+        }
+
+        /* Unmarked — the default unspoken arrangement, very subtle */
+        .slot.state-unmarked .slot-name { color: var(--muted-light); font-weight: 500; }
+        .slot.state-unmarked .slot-hint { color: var(--muted-light); }
+        .slot.state-unmarked:hover::before { border-color: var(--accent); border-style: dashed; }
+        .slot.state-unmarked:hover .slot-name { color: var(--accent); }
+        .slot.state-unmarked:hover .slot-hint { color: var(--accent); }
+
+        /* Asked of you — prominent solid teal: this is YOUR to-do */
+        .slot.state-asked-of-you::before {
+            border: 1.5px solid var(--teal-border);
+            border-style: solid;
+            background: var(--teal-bg);
+        }
+        .slot.state-asked-of-you .slot-name { color: var(--teal-strong); font-weight: 700; }
+        .slot.state-asked-of-you .slot-hint { color: var(--teal-text); }
+
+        /* Asked of partner — dashed, muted: waiting on them */
+        .slot.state-asked-by-you::before {
+            border: 1.5px dashed var(--purple-border);
+            background: transparent;
+        }
+        .slot.state-asked-by-you .slot-name { color: var(--purple-text); font-weight: 600; }
+        .slot.state-asked-by-you .slot-hint { color: var(--purple-text); opacity: 0.85; }
+
+        .slot:disabled { cursor: default; }
+
+        .slot.is-past::before { opacity: 0.55; }
+        .slot.is-past { opacity: 0.6; }
+
+        /* Pulse on update */
+        .slot.just-updated::before {
+            animation: pulse 0.5s ease-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.025); }
+            100% { transform: scale(1); }
+        }
+
+        /* ==================== FOOTER COUNTS ==================== */
+        .week-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .count-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+        .count-pill.unclaimed {
+            background: var(--soft);
+            border-color: var(--border);
+            color: var(--muted);
+        }
+        .count-pill.asked-of-you {
+            background: var(--teal-bg);
+            border-color: var(--teal-border);
+            color: var(--teal-strong);
+        }
+        .count-pill.asked-by-you {
+            background: var(--purple-bg);
+            border-color: var(--purple-border);
+            color: var(--purple-text);
+        }
+        .count-pill.clean {
+            background: var(--teal-bg);
+            border-color: var(--teal-border);
+            color: var(--teal-text);
+        }
+        .count-pill.updated {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--muted-light);
+            font-weight: 500;
+        }
+
+        /* ==================== SETTINGS ==================== */
+        .settings-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+
+        .settings-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 0;
+        }
+        .setting-row + .setting-row { border-top: 1px solid var(--border-soft); }
+
+        .setting-label {
+            font-size: 14px;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .setting-desc {
+            font-size: 12px;
+            color: var(--muted-light);
+            margin-top: 2px;
+        }
+
+        .toggle {
+            width: 42px;
+            height: 24px;
+            background: var(--border);
+            border-radius: 999px;
+            position: relative;
+            cursor: pointer;
+            border: none;
+            transition: background 0.18s;
+            flex-shrink: 0;
+        }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.18s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .toggle.on { background: var(--teal-text); }
+        .toggle.on::after { transform: translateX(18px); }
+
+        .danger-btn {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .danger-btn:hover { background: var(--accent-soft); }
+
+        .household-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px 0;
+        }
+        .parent-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .parent-avatar.teal { background: var(--teal-text); }
+        .parent-avatar.purple { background: var(--purple-text); }
+        .parent-avatar.pending {
+            background: var(--soft);
+            color: var(--muted);
+            border: 1.5px dashed var(--border);
+        }
+        .parent-info { flex: 1; min-width: 0; }
+        .parent-name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .parent-meta { font-size: 12px; color: var(--muted-light); }
+
+        /* ==================== MODAL ==================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 41, 59, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 380px;
+            width: 100%;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .modal-body { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+        .modal-actions .btn { flex: 1; }
+        .modal-actions .btn.single { flex: 0 0 auto; padding-left: 20px; padding-right: 20px; margin-left: auto; }
+
+        .modal-note-section { margin-bottom: 16px; }
+        .modal-note-section .form-label { font-size: 12px; }
+        .modal-note-section .form-input { padding: 10px 12px; font-size: 14px; }
+        .note-count {
+            font-size: 11px;
+            color: var(--muted-light);
+            text-align: right;
+            margin-top: 4px;
+        }
+        .note-count.warn { color: var(--accent); }
+
+        .existing-note {
+            background: var(--teal-bg);
+            border: 1px solid var(--teal-border);
+            color: var(--teal-strong);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+        .existing-note .note-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--teal-text);
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+        .existing-note.muted {
+            background: var(--soft);
+            border-color: var(--border);
+            color: var(--muted);
+        }
+        .existing-note.muted .note-label { color: var(--muted-light); }
+
+        /* ==================== TOAST ==================== */
+        .toast {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: var(--text);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.22s;
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 90%;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ==================== VERSION ==================== */
+        .version {
+            position: fixed;
+            bottom: 6px;
+            right: 10px;
+            font-size: 10px;
+            color: #C5CCD3;
+            pointer-events: none;
+        }
+
+        /* ==================== EMPTY STATE / LOADING ==================== */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted-light);
+            font-size: 13px;
+        }
+
+        @media (min-width: 768px) {
+            .container { padding: 32px 24px; }
+            .onboarding-title { font-size: 32px; }
+            .grid-row { grid-template-columns: 96px 1fr 1fr; }
+            .grid-head { grid-template-columns: 96px 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== ENTRY SCREEN ==================== -->
+<div id="entryScreen" class="screen onboarding">
+    <div class="onboarding-inner">
+        <div class="onboarding-header">
+            <div class="onboarding-logo">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="5" width="18" height="16" rx="2"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <line x1="8" y1="3" x2="8" y2="7" stroke-linecap="round"/>
+                    <line x1="16" y1="3" x2="16" y2="7" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h1 class="onboarding-title">Tiny Care</h1>
+            <p class="onboarding-subtitle">Most days drop-off and pick-up just happen. Tiny Care is for the days they don't — flag a slot to ask your partner to cover.</p>
+        </div>
+
+        <div class="setup-form">
+            <div class="form-group">
+                <label class="form-label" for="entryName">Your name</label>
+                <input class="form-input" id="entryName" type="text" placeholder="e.g. Sam" maxlength="24" autocomplete="given-name" />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" id="btnCreate" disabled>Create our household</button>
+            </div>
+        </div>
+
+        <div class="setup-form" style="margin-top: 12px;">
+            <div class="form-group">
+                <label class="form-label" for="entryInvite">Have an invite link?</label>
+                <input class="form-input" id="entryInvite" type="text" placeholder="Paste link or token" autocomplete="off" />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-secondary" id="btnJoinFromLink" disabled>Join with link</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="version" id="versionLabel">v2026.05.24-01</div>
+</div>
+
+<!-- ==================== INVITE SHARE SCREEN (after creating) ==================== -->
+<div id="inviteScreen" class="screen onboarding">
+    <div class="onboarding-inner">
+        <div class="onboarding-header">
+            <div class="onboarding-logo">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="8" r="3"/>
+                    <path d="M5 21c0-4 3-7 7-7s7 3 7 7"/>
+                    <line x1="18" y1="3" x2="18" y2="9" stroke-linecap="round"/>
+                    <line x1="15" y1="6" x2="21" y2="6" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h1 class="onboarding-title">Invite your partner</h1>
+            <p class="onboarding-subtitle">Send them this link. It works for 7 days and only one person can use it.</p>
+        </div>
+
+        <div class="setup-form">
+            <div class="form-group">
+                <label class="form-label">Share link</label>
+                <div class="invite-link-row">
+                    <input class="form-input" id="inviteLinkInput" type="text" readonly />
+                    <button class="copy-btn" id="copyInviteBtn">Copy</button>
+                </div>
+                <p class="invite-hint">Tap <strong>Share</strong> to send via Messages, WhatsApp, or email. You'll both see the grid the moment your partner joins.</p>
+            </div>
+
+            <div class="form-group">
+                <button class="btn btn-primary" id="shareInviteBtn">Share invite</button>
+            </div>
+            <div class="form-group">
+                <button class="btn btn-ghost" id="skipInviteBtn">Continue to grid</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== JOIN SCREEN (invited partner) ==================== -->
+<div id="joinScreen" class="screen onboarding">
+    <div class="onboarding-inner">
+        <div class="onboarding-header">
+            <div class="onboarding-logo">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 3l3 6 6 1-4.5 4 1 6L12 17l-5.5 3 1-6L3 10l6-1z"/>
+                </svg>
+            </div>
+            <h1 class="onboarding-title">Join the household</h1>
+            <p class="onboarding-subtitle" id="joinSubtitle">Loading invite…</p>
+        </div>
+
+        <div class="setup-form" id="joinForm" style="display:none;">
+            <div class="join-greeting" id="joinGreeting"></div>
+            <div class="form-group">
+                <label class="form-label" for="joinName">Your name</label>
+                <input class="form-input" id="joinName" type="text" placeholder="e.g. Alex" maxlength="24" />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" id="btnJoin" disabled>Join household</button>
+            </div>
+        </div>
+
+        <div class="setup-form" id="joinExpiredBox" style="display:none;">
+            <div class="invite-expired">
+                This invite link has expired or has already been used. Ask your partner to send a new one from the Tiny Care settings.
+            </div>
+            <button class="btn btn-secondary" id="goEntryBtn">Back to start</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== WEEK / MAIN ==================== -->
+<div id="weekScreen" class="screen">
+    <div class="container">
+        <a href="https://tinywins.app/spaces/" class="suite-back-link">← Back to Tiny</a>
+
+        <div class="app-header">
+            <div>
+                <h1 class="app-title">Tiny Care</h1>
+                <p class="app-subtitle" id="weekHeaderSub">Ask your partner to cover</p>
+            </div>
+            <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+        </div>
+
+        <div class="legend" id="legend"></div>
+
+        <div class="week-bar">
+            <button class="week-nav-btn" id="prevWeekBtn" aria-label="Previous week">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="week-label" id="weekLabel">—</span>
+                <button class="today-btn" id="todayBtn" style="display:none;">Today</button>
+            </div>
+            <button class="week-nav-btn" id="nextWeekBtn" aria-label="Next week">
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+
+        <div class="grid" id="grid">
+            <div class="grid-head">
+                <div class="grid-head-cell">Day</div>
+                <div class="grid-head-cell">Drop-off</div>
+                <div class="grid-head-cell">Pick-up</div>
+            </div>
+            <div id="gridBody"></div>
+        </div>
+
+        <div class="week-footer" id="weekFooter"></div>
+    </div>
+</div>
+
+<!-- ==================== SETTINGS ==================== -->
+<div id="settingsScreen" class="screen">
+    <div class="container">
+        <a href="#" class="suite-back-link" id="backToWeek">← Back to this week</a>
+
+        <div class="app-header">
+            <div>
+                <h1 class="app-title">Settings</h1>
+                <p class="app-subtitle">Household &amp; preferences</p>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>Household</h3>
+            <div class="household-card" id="parentsList"></div>
+        </div>
+
+        <div class="settings-section">
+            <h3>You</h3>
+            <div class="form-group">
+                <label class="form-label" for="settingsName">Your name</label>
+                <input class="form-input" id="settingsName" type="text" maxlength="24" />
+            </div>
+            <button class="btn btn-secondary" id="saveNameBtn">Save name</button>
+        </div>
+
+        <div class="settings-section">
+            <h3>Notifications</h3>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">Push notifications</div>
+                    <div class="setting-desc">Get a ping when your partner asks you to cover a slot or updates an ask.</div>
+                </div>
+                <button class="toggle" id="notifToggle" aria-label="Toggle notifications"></button>
+            </div>
+        </div>
+
+        <div class="settings-section" id="inviteAgainSection" style="display:none;">
+            <h3>Invite</h3>
+            <p class="setting-desc" style="margin-bottom:12px;">Your partner hasn't joined yet. Resend the invite or generate a new link.</p>
+            <div class="invite-link-row">
+                <input class="form-input" id="settingsInviteLink" type="text" readonly />
+                <button class="copy-btn" id="settingsCopyBtn">Copy</button>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="btn btn-secondary" id="settingsShareBtn" style="flex:1;">Share</button>
+                <button class="btn btn-ghost" id="settingsRegenBtn" style="flex:1;">New link</button>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>Danger zone</h3>
+            <button class="btn danger-btn" id="leaveBtn">Leave household</button>
+            <p class="setting-desc" style="margin-top:8px;">Removes you from the household. Your partner keeps everything they've claimed.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL ==================== -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="existing-note" id="modalExistingNote" style="display:none;">
+            <div class="note-label" id="modalExistingNoteLabel">Note</div>
+            <div id="modalExistingNoteText"></div>
+        </div>
+        <div class="modal-note-section" id="modalNoteSection" style="display:none;">
+            <label class="form-label" for="modalNoteInput">Note (optional)</label>
+            <input class="form-input" id="modalNoteInput" type="text" maxlength="60" placeholder="e.g. early meeting" />
+            <div class="note-count"><span id="modalNoteCount">0</span>/60</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+            <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==========================================================================
+// Tiny Care — single-file shared scheduling app
+// ==========================================================================
+
+const FIREBASE_DB = 'https://tiny-room-3967e-default-rtdb.firebaseio.com';
+const ROOT = 'tinycare';
+
+const DAYS = ['mon','tue','wed','thu','fri'];
+const SLOTS = ['dropoff','pickup'];
+const DAY_LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri' };
+const SLOT_LABELS = { dropoff:'Drop-off', pickup:'Pick-up' };
+
+const LS_KEYS = {
+    householdId: 'tinycare-household-id',
+    parentId: 'tinycare-parent-id',
+    name: 'tinycare-name',
+    notifs: 'tinycare-notifs'
+};
+
+// ----- State -----
+let state = {
+    householdId: null,
+    parentId: null,
+    parents: {},         // { pid: { name, color, joined_at } }
+    inviteToken: null,
+    inviteExpires: null,
+    weekStart: null,     // Date (Monday 00:00 local)
+    asks: {},            // { 'mon_dropoff': { asker_id, note, created_at, updated_at }, ... }
+    pollTimer: null,
+    lastAsksHash: '',
+    lastUpdatedAt: 0,    // most-recent updated_at across all asks this week
+    lastMutationAt: 0    // timestamp of last local write/delete — guards against stale poll overwrites
+};
+
+// ==========================================================================
+// Utilities
+// ==========================================================================
+
+function uid(len=10) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+}
+
+function inviteCode(len=8) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+}
+
+function startOfWeek(d) {
+    // Monday-anchored week
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const day = x.getDay(); // 0=Sun..6=Sat
+    const diff = (day === 0 ? -6 : 1 - day);
+    x.setDate(x.getDate() + diff);
+    return x;
+}
+
+function addDays(d, n) {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+}
+
+function ymd(d) {
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function fmtRange(start) {
+    const end = addDays(start, 4);
+    const sameMonth = start.getMonth() === end.getMonth();
+    const fmtMonth = i => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i];
+    if (sameMonth) {
+        return `${fmtMonth(start.getMonth())} ${start.getDate()}–${end.getDate()}`;
+    }
+    return `${fmtMonth(start.getMonth())} ${start.getDate()} – ${fmtMonth(end.getMonth())} ${end.getDate()}`;
+}
+
+function isSameDay(a, b) {
+    return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+
+function show(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+function toast(msg, ms=2200) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ==========================================================================
+// Firebase RTDB helpers
+// ==========================================================================
+
+async function dbGet(path) {
+    try {
+        const r = await fetch(`${FIREBASE_DB}/${path}.json`);
+        if (!r.ok) return null;
+        return await r.json();
+    } catch (e) { console.warn('dbGet', path, e); return null; }
+}
+
+async function dbPut(path, value) {
+    try {
+        const r = await fetch(`${FIREBASE_DB}/${path}.json`, {
+            method: 'PUT', body: JSON.stringify(value)
+        });
+        return r.ok;
+    } catch (e) { console.warn('dbPut', path, e); return false; }
+}
+
+async function dbPatch(path, value) {
+    try {
+        const r = await fetch(`${FIREBASE_DB}/${path}.json`, {
+            method: 'PATCH', body: JSON.stringify(value)
+        });
+        return r.ok;
+    } catch (e) { console.warn('dbPatch', path, e); return false; }
+}
+
+async function dbDelete(path) {
+    try {
+        const r = await fetch(`${FIREBASE_DB}/${path}.json`, { method: 'DELETE' });
+        return r.ok;
+    } catch (e) { console.warn('dbDelete', path, e); return false; }
+}
+
+// ==========================================================================
+// Household / parent operations
+// ==========================================================================
+
+async function createHousehold(name) {
+    const hid = uid(12);
+    const pid = uid(10);
+    const token = inviteCode(8);
+    const now = Date.now();
+    const expires = now + 7 * 24 * 60 * 60 * 1000;
+
+    const ok = await dbPut(`${ROOT}/households/${hid}`, {
+        invite_token: token,
+        invite_expires: expires,
+        created_at: now,
+        parents: {
+            [pid]: { name: name.trim(), color: 'teal', joined_at: now }
+        }
+    });
+    if (!ok) { toast('Could not create household. Try again.'); return null; }
+
+    await dbPut(`${ROOT}/invites/${token}`, hid);
+
+    localStorage.setItem(LS_KEYS.householdId, hid);
+    localStorage.setItem(LS_KEYS.parentId, pid);
+    localStorage.setItem(LS_KEYS.name, name.trim());
+
+    state.householdId = hid;
+    state.parentId = pid;
+    state.inviteToken = token;
+    state.inviteExpires = expires;
+    state.parents = { [pid]: { name: name.trim(), color: 'teal', joined_at: now } };
+
+    return { hid, pid, token };
+}
+
+async function lookupInvite(token) {
+    const hid = await dbGet(`${ROOT}/invites/${token}`);
+    if (!hid) return null;
+    const hh = await dbGet(`${ROOT}/households/${hid}`);
+    if (!hh) return null;
+    if (!hh.invite_token || hh.invite_token !== token) return null;
+    if (hh.invite_expires && Date.now() > hh.invite_expires) return null;
+    return { hid, household: hh };
+}
+
+async function joinHousehold(hid, household, name) {
+    // Assign next available color
+    const existing = household.parents || {};
+    const colorsUsed = new Set(Object.values(existing).map(p => p.color));
+    const color = colorsUsed.has('teal') ? 'purple' : 'teal';
+    const pid = uid(10);
+    const now = Date.now();
+
+    const ok = await dbPatch(`${ROOT}/households/${hid}/parents`, {
+        [pid]: { name: name.trim(), color, joined_at: now }
+    });
+    if (!ok) { toast('Could not join. Try again.'); return null; }
+
+    // Clear invite (single use)
+    if (household.invite_token) {
+        await dbDelete(`${ROOT}/invites/${household.invite_token}`);
+        await dbDelete(`${ROOT}/households/${hid}/invite_token`);
+        await dbDelete(`${ROOT}/households/${hid}/invite_expires`);
+    }
+
+    localStorage.setItem(LS_KEYS.householdId, hid);
+    localStorage.setItem(LS_KEYS.parentId, pid);
+    localStorage.setItem(LS_KEYS.name, name.trim());
+
+    state.householdId = hid;
+    state.parentId = pid;
+    state.parents = { ...existing, [pid]: { name: name.trim(), color, joined_at: now } };
+    state.inviteToken = null;
+    state.inviteExpires = null;
+
+    return { pid, color };
+}
+
+async function leaveHousehold() {
+    const { householdId: hid, parentId: pid } = state;
+    if (!hid || !pid) return;
+
+    await dbDelete(`${ROOT}/households/${hid}/parents/${pid}`);
+
+    // Remove every ask this parent made across all weeks
+    const allAsks = await dbGet(`${ROOT}/households/${hid}/asks`);
+    if (allAsks) {
+        for (const wk of Object.keys(allAsks)) {
+            for (const ds of Object.keys(allAsks[wk])) {
+                if (allAsks[wk][ds] && allAsks[wk][ds].asker_id === pid) {
+                    await dbDelete(`${ROOT}/households/${hid}/asks/${wk}/${ds}`);
+                }
+            }
+        }
+    }
+
+    // Reset locally
+    localStorage.removeItem(LS_KEYS.householdId);
+    localStorage.removeItem(LS_KEYS.parentId);
+    localStorage.removeItem(LS_KEYS.name);
+    stopPolling();
+    state = { householdId:null, parentId:null, parents:{}, inviteToken:null, inviteExpires:null, weekStart:null, asks:{}, pollTimer:null, lastAsksHash:'', lastUpdatedAt:0 };
+}
+
+async function loadHousehold() {
+    const hh = await dbGet(`${ROOT}/households/${state.householdId}`);
+    if (!hh) return false;
+    state.parents = hh.parents || {};
+    state.inviteToken = hh.invite_token || null;
+    state.inviteExpires = hh.invite_expires || null;
+    // If our local parent record disappeared (e.g. partner left? or we leaked), bail.
+    if (!state.parents[state.parentId]) return false;
+    // Sync name from local if it differs from db
+    const localName = localStorage.getItem(LS_KEYS.name);
+    if (localName && state.parents[state.parentId].name !== localName) {
+        state.parents[state.parentId].name = localName;
+    }
+    return true;
+}
+
+// ==========================================================================
+// Asks — at most one per slot, written by the asker
+// ==========================================================================
+
+function weekIso() { return ymd(state.weekStart); }
+
+function recomputeLastUpdated() {
+    let max = 0;
+    for (const k in state.asks) {
+        const a = state.asks[k];
+        if (a && a.updated_at && a.updated_at > max) max = a.updated_at;
+    }
+    state.lastUpdatedAt = max;
+}
+
+async function fetchWeekAsks(silent=false) {
+    const fetchStart = Date.now();
+    const data = await dbGet(`${ROOT}/households/${state.householdId}/asks/${weekIso()}`);
+    // If a local mutation happened during this fetch, the response may be stale — discard it.
+    if (state.lastMutationAt >= fetchStart) return false;
+    const asks = data || {};
+    const hash = JSON.stringify(asks);
+    if (hash === state.lastAsksHash) return false;
+    state.asks = asks;
+    state.lastAsksHash = hash;
+    recomputeLastUpdated();
+    if (!silent) renderGrid({ pulse: true });
+    return true;
+}
+
+async function writeAsk(day, slot, note) {
+    const key = `${day}_${slot}`;
+    const path = `${ROOT}/households/${state.householdId}/asks/${weekIso()}/${key}`;
+    const now = Date.now();
+    const existing = state.asks[key];
+    const ask = {
+        asker_id: state.parentId,
+        note: (note || '').trim().slice(0, 60) || null,
+        created_at: existing ? (existing.created_at || now) : now,
+        updated_at: now
+    };
+    // Optimistic
+    state.lastMutationAt = now;
+    state.asks[key] = ask;
+    state.lastAsksHash = JSON.stringify(state.asks);
+    state.lastUpdatedAt = now;
+    renderGrid({ pulse: true, pulseKey: key });
+    const ok = await dbPut(path, ask);
+    state.lastMutationAt = Date.now(); // also invalidate any GET that overlapped the write
+    if (!ok) toast('Could not save. Check connection.');
+}
+
+async function deleteAsk(day, slot) {
+    const key = `${day}_${slot}`;
+    const path = `${ROOT}/households/${state.householdId}/asks/${weekIso()}/${key}`;
+    state.lastMutationAt = Date.now();
+    delete state.asks[key];
+    state.lastAsksHash = JSON.stringify(state.asks);
+    state.lastUpdatedAt = Date.now();
+    renderGrid({ pulse: true, pulseKey: key });
+    const ok = await dbDelete(path);
+    state.lastMutationAt = Date.now();
+    if (!ok) toast('Could not save. Check connection.');
+}
+
+// ==========================================================================
+// Rendering
+// ==========================================================================
+
+function partnerId() {
+    return Object.keys(state.parents).find(p => p !== state.parentId) || null;
+}
+
+function partner() {
+    const pid = partnerId();
+    return pid ? state.parents[pid] : null;
+}
+
+function selfColor() {
+    return state.parents[state.parentId]?.color || 'teal';
+}
+
+function isPast(weekStart, dayIdx) {
+    const d = addDays(weekStart, dayIdx);
+    const today = new Date();
+    const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return d < t0;
+}
+
+function renderHeader() {
+    document.getElementById('weekLabel').textContent = fmtRange(state.weekStart);
+    const today = new Date();
+    const thisWeek = startOfWeek(today);
+    const isThisWeek = isSameDay(state.weekStart, thisWeek);
+    document.getElementById('todayBtn').style.display = isThisWeek ? 'none' : 'inline-flex';
+    const me = state.parents[state.parentId];
+    const them = partner();
+    let sub = `${me ? me.name : ''}`;
+    if (them) sub += ` &amp; ${them.name}`;
+    else sub += ` · waiting for partner to join`;
+    document.getElementById('weekHeaderSub').innerHTML = sub;
+}
+
+function renderLegend() {
+    const el = document.getElementById('legend');
+    const them = partner();
+    const themName = them ? them.name : 'partner';
+
+    el.innerHTML = `
+        <span class="legend-item">
+            <span class="legend-chip you-chip"></span>
+            ${escapeHtml(themName)} asked you
+        </span>
+        <span class="legend-item">
+            <span class="legend-chip partner-chip" style="border-style: dashed; background: transparent;"></span>
+            You asked ${escapeHtml(themName)}
+        </span>
+        <span class="legend-item">
+            <span class="legend-chip empty-chip"></span> Default
+        </span>
+    `;
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function slotState(day, slot) {
+    const key = `${day}_${slot}`;
+    const ask = state.asks[key];
+    if (!ask || !ask.asker_id) return { kind: 'unmarked' };
+    if (ask.asker_id === state.parentId) return { kind: 'asked-by-you', ask };
+    return { kind: 'asked-of-you', ask };
+}
+
+function slotLabel(day, slot) {
+    return `${DAY_LABELS[day]} ${SLOT_LABELS[slot].toLowerCase()}`;
+}
+
+function renderGrid(opts={}) {
+    renderHeader();
+    renderLegend();
+    const body = document.getElementById('gridBody');
+    const them = partner();
+    const themName = them ? them.name : 'partner';
+
+    let askedOfYou = 0, askedByYou = 0;
+
+    const html = DAYS.map((d, di) => {
+        const date = addDays(state.weekStart, di);
+        const past = isPast(state.weekStart, di);
+        const todayMarker = isSameDay(date, new Date());
+        const dayClasses = [
+            'day-cell',
+            past ? 'is-past' : '',
+            todayMarker ? 'is-today' : ''
+        ].filter(Boolean).join(' ');
+
+        const cells = SLOTS.map(s => {
+            const st = slotState(d, s);
+            let cls = 'slot';
+            let nameText = SLOT_LABELS[s];
+            let hint = '';
+            let disabled = false;
+
+            if (st.kind === 'unmarked') {
+                cls += ' state-unmarked';
+                hint = them ? `+ ask ${themName}` : '+ waiting for partner';
+                if (!them) disabled = true;
+                if (past) disabled = true;
+            } else if (st.kind === 'asked-of-you') {
+                cls += ' state-asked-of-you';
+                nameText = `${SLOT_LABELS[s]} · you cover`;
+                hint = st.ask.note ? `${themName}: ${st.ask.note}` : `${themName} asked you`;
+                askedOfYou++;
+                disabled = true; // only asker can un-flag
+            } else if (st.kind === 'asked-by-you') {
+                cls += ' state-asked-by-you';
+                nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
+                hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
+                askedByYou++;
+                if (past) disabled = true;
+            }
+
+            if (past) cls += ' is-past';
+
+            return `<button class="${cls}" data-day="${d}" data-slot="${s}" data-state="${st.kind}"${disabled ? ' disabled' : ''}>
+                <div class="slot-name">${escapeHtml(nameText)}</div>
+                <div class="slot-hint">${escapeHtml(hint)}</div>
+            </button>`;
+        }).join('');
+
+        return `<div class="grid-row">
+            <div class="${dayClasses}">
+                <div class="day-name">${DAY_LABELS[d]}</div>
+                <div class="day-date">${date.getMonth()+1}/${date.getDate()}</div>
+            </div>
+            ${cells}
+        </div>`;
+    }).join('');
+
+    body.innerHTML = html;
+
+    body.querySelectorAll('.slot').forEach(btn => {
+        // Even disabled slots that are "asked-of-you" should be tappable for read-only detail
+        if (btn.dataset.state === 'asked-of-you' && !btn.classList.contains('is-past')) {
+            btn.disabled = false;
+        }
+        btn.addEventListener('click', onSlotClick);
+        if (opts.pulse && (!opts.pulseKey || btn.dataset.day + '_' + btn.dataset.slot === opts.pulseKey)) {
+            btn.classList.add('just-updated');
+            setTimeout(() => btn.classList.remove('just-updated'), 600);
+        }
+    });
+
+    renderFooter(askedOfYou, askedByYou, themName);
+}
+
+function relativeTime(ts) {
+    if (!ts) return '';
+    const diff = Math.max(0, Date.now() - ts);
+    const s = Math.floor(diff / 1000);
+    if (s < 30) return 'just now';
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min${m===1?'':'s'} ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    return `${d}d ago`;
+}
+
+function renderFooter(askedOfYou, askedByYou, themName) {
+    const el = document.getElementById('weekFooter');
+    const them = partner();
+    const parts = [];
+
+    if (!them) {
+        el.innerHTML = `<span class="count-pill unclaimed">Waiting for partner to join</span>`;
+        return;
+    }
+
+    if (askedOfYou === 0 && askedByYou === 0) {
+        parts.push(`<span class="count-pill clean">All quiet — no asks this week</span>`);
+    } else {
+        if (askedOfYou > 0) {
+            parts.push(`<span class="count-pill asked-of-you">${askedOfYou} ${themName} asked you to cover</span>`);
+        }
+        if (askedByYou > 0) {
+            parts.push(`<span class="count-pill asked-by-you">${askedByYou} you asked ${themName}</span>`);
+        }
+    }
+    if (state.lastUpdatedAt) {
+        parts.push(`<span class="count-pill updated">Updated ${relativeTime(state.lastUpdatedAt)}</span>`);
+    }
+    el.innerHTML = parts.join('');
+}
+
+function onSlotClick(e) {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    const day = btn.dataset.day;
+    const slot = btn.dataset.slot;
+    const st = slotState(day, slot);
+    const them = partner();
+    if (!them) { toast('Wait until your partner joins'); return; }
+
+    if (st.kind === 'unmarked') {
+        openAskModal(day, slot, them.name);
+    } else if (st.kind === 'asked-by-you') {
+        openUnaskModal(day, slot, them.name, st.ask);
+    } else if (st.kind === 'asked-of-you') {
+        openViewAskModal(day, slot, them.name, st.ask);
+    }
+}
+
+// ==========================================================================
+// Polling for live updates
+// ==========================================================================
+
+function startPolling() {
+    stopPolling();
+    state.pollTimer = setInterval(async () => {
+        if (!state.householdId) return;
+        // Always refresh the household while waiting for a partner to join,
+        // otherwise just occasionally (to catch a name change / leave).
+        if (!partner() || Math.random() < 0.34) {
+            await loadHousehold();
+        }
+        await fetchWeekAsks(true); // update state silently
+        // Re-render every tick so partner-join, new asks, and "Updated X ago" all stay fresh.
+        if (document.getElementById('weekScreen').classList.contains('active')) {
+            renderGrid();
+        }
+    }, 4000);
+}
+
+function stopPolling() {
+    if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+}
+
+// ==========================================================================
+// Invite links
+// ==========================================================================
+
+function inviteUrl(token) {
+    const base = window.location.origin + window.location.pathname;
+    return `${base}?invite=${token}`;
+}
+
+async function regenerateInvite() {
+    const token = inviteCode(8);
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // Remove old invite mapping if exists
+    if (state.inviteToken) {
+        await dbDelete(`${ROOT}/invites/${state.inviteToken}`);
+    }
+    await dbPatch(`${ROOT}/households/${state.householdId}`, {
+        invite_token: token, invite_expires: expires
+    });
+    await dbPut(`${ROOT}/invites/${token}`, state.householdId);
+    state.inviteToken = token;
+    state.inviteExpires = expires;
+    return token;
+}
+
+async function shareInvite(token) {
+    const url = inviteUrl(token);
+    const text = `Join me on Tiny Care to split drop-offs and pickups: ${url}`;
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: 'Tiny Care invite', text, url });
+            return;
+        } catch (e) { /* user cancelled — fall through */ }
+    }
+    try {
+        await navigator.clipboard.writeText(url);
+        toast('Invite link copied');
+    } catch (e) {
+        toast(url, 4000);
+    }
+}
+
+// ==========================================================================
+// Settings rendering
+// ==========================================================================
+
+function renderSettings() {
+    const me = state.parents[state.parentId];
+    const them = partner();
+    document.getElementById('settingsName').value = me ? me.name : '';
+
+    const parentsHtml = [];
+    if (me) {
+        parentsHtml.push(parentCardHtml(me, true));
+    }
+    if (them) {
+        parentsHtml.push(parentCardHtml(them, false));
+    } else {
+        parentsHtml.push(`<div class="household-card">
+            <div class="parent-avatar pending">?</div>
+            <div class="parent-info">
+                <div class="parent-name" style="color: var(--muted-light);">Waiting for partner</div>
+                <div class="parent-meta">Invite hasn't been used yet</div>
+            </div>
+        </div>`);
+    }
+    document.getElementById('parentsList').outerHTML =
+        `<div id="parentsList" style="display:flex; flex-direction:column; gap:6px;">${parentsHtml.join('')}</div>`;
+
+    // Invite section
+    const inviteSection = document.getElementById('inviteAgainSection');
+    if (!them && state.inviteToken) {
+        inviteSection.style.display = 'block';
+        document.getElementById('settingsInviteLink').value = inviteUrl(state.inviteToken);
+    } else {
+        inviteSection.style.display = 'none';
+    }
+
+    // Notifications toggle
+    const tog = document.getElementById('notifToggle');
+    const enabled = localStorage.getItem(LS_KEYS.notifs) === '1';
+    tog.classList.toggle('on', enabled);
+}
+
+function parentCardHtml(p, isYou) {
+    const initial = (p.name || '?').charAt(0).toUpperCase();
+    return `<div class="household-card">
+        <div class="parent-avatar ${p.color}">${escapeHtml(initial)}</div>
+        <div class="parent-info">
+            <div class="parent-name">${escapeHtml(p.name)}${isYou ? ' <span style="color: var(--muted-light); font-weight:500;">(you)</span>' : ''}</div>
+            <div class="parent-meta">${p.color === 'teal' ? 'Sage' : 'Purple'}</div>
+        </div>
+    </div>`;
+}
+
+// ==========================================================================
+// Modal
+// ==========================================================================
+
+// Generic modal. Returns { confirmed, note } when input shown, or { confirmed } otherwise.
+function openModal({
+    title,
+    body,
+    existingNote = null,         // { text, muted? } shown above the actions
+    noteInput = null,            // { initial, placeholder, optional } — null = no input
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    dangerous = false,
+    hideCancel = false
+}) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('modalOverlay');
+        document.getElementById('modalTitle').textContent = title;
+        const bodyEl = document.getElementById('modalBody');
+        bodyEl.innerHTML = body || '';
+        bodyEl.style.display = body ? 'block' : 'none';
+
+        const existingEl = document.getElementById('modalExistingNote');
+        const existingText = document.getElementById('modalExistingNoteText');
+        const existingLabel = document.getElementById('modalExistingNoteLabel');
+        if (existingNote) {
+            existingEl.style.display = 'block';
+            existingEl.classList.toggle('muted', !!existingNote.muted);
+            existingText.textContent = existingNote.text || '(no note)';
+            existingLabel.textContent = existingNote.label || 'Note';
+        } else {
+            existingEl.style.display = 'none';
+        }
+
+        const noteSection = document.getElementById('modalNoteSection');
+        const noteInputEl = document.getElementById('modalNoteInput');
+        const noteCountEl = document.getElementById('modalNoteCount');
+        if (noteInput) {
+            noteSection.style.display = 'block';
+            noteInputEl.value = noteInput.initial || '';
+            noteInputEl.placeholder = noteInput.placeholder || 'e.g. early meeting';
+            const updateCount = () => {
+                const len = noteInputEl.value.length;
+                noteCountEl.textContent = len;
+                noteCountEl.parentElement.classList.toggle('warn', len >= 55);
+            };
+            updateCount();
+            noteInputEl.oninput = updateCount;
+        } else {
+            noteSection.style.display = 'none';
+            noteInputEl.oninput = null;
+        }
+
+        const ok = document.getElementById('modalConfirm');
+        const cancel = document.getElementById('modalCancel');
+        ok.textContent = confirmLabel;
+        ok.classList.toggle('danger-btn', dangerous);
+        ok.classList.toggle('btn-primary', !dangerous);
+        cancel.textContent = cancelLabel;
+        cancel.style.display = hideCancel ? 'none' : 'inline-flex';
+        ok.classList.toggle('single', hideCancel);
+
+        overlay.classList.add('active');
+        if (noteInput) setTimeout(() => noteInputEl.focus(), 50);
+
+        const cleanup = (result) => {
+            overlay.classList.remove('active');
+            ok.removeEventListener('click', onOk);
+            cancel.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            resolve(result);
+        };
+        const onOk = () => cleanup({ confirmed: true, note: noteInput ? noteInputEl.value : null });
+        const onCancel = () => cleanup({ confirmed: false, note: null });
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup({ confirmed: false, note: null }); };
+        const onKey = (e) => {
+            if (e.key === 'Escape') cleanup({ confirmed: false, note: null });
+            if (e.key === 'Enter' && (!noteInput || document.activeElement === noteInputEl)) onOk();
+        };
+        ok.addEventListener('click', onOk);
+        cancel.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+    });
+}
+
+// Backwards-compat shim (used by leave-household)
+async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=false }) {
+    const r = await openModal({ title, body, confirmLabel, dangerous });
+    return r.confirmed;
+}
+
+async function openAskModal(day, slot, partnerName) {
+    const r = await openModal({
+        title: `Ask ${partnerName} to cover ${slotLabel(day, slot)}?`,
+        body: `${partnerName} will see this on their grid. Add a short note so they know why (optional).`,
+        noteInput: { initial: '', placeholder: 'e.g. early meeting' },
+        confirmLabel: `Ask ${partnerName}`
+    });
+    if (r.confirmed) {
+        await writeAsk(day, slot, r.note);
+        toast(`Asked ${partnerName} to cover ${slotLabel(day, slot)}`);
+    }
+}
+
+async function openUnaskModal(day, slot, partnerName, ask) {
+    const r = await openModal({
+        title: `Un-ask ${partnerName}?`,
+        body: `Your ask for <strong>${escapeHtml(slotLabel(day, slot))}</strong> will be removed.`,
+        existingNote: ask.note ? { text: ask.note, label: 'Your note', muted: true } : null,
+        confirmLabel: 'Un-ask',
+        dangerous: true
+    });
+    if (r.confirmed) {
+        await deleteAsk(day, slot);
+        toast(`Un-asked ${slotLabel(day, slot)}`);
+    }
+}
+
+async function openViewAskModal(day, slot, partnerName, ask) {
+    await openModal({
+        title: `${partnerName} asked you to cover ${slotLabel(day, slot)}`,
+        body: ask.note ? '' : `<em>${escapeHtml(partnerName)} didn't leave a note.</em>`,
+        existingNote: ask.note ? { text: ask.note, label: `${partnerName}'s note` } : null,
+        confirmLabel: 'Got it',
+        hideCancel: true
+    });
+}
+
+// ==========================================================================
+// Routing — decide which screen to show
+// ==========================================================================
+
+async function boot() {
+    state.weekStart = startOfWeek(new Date());
+
+    // Restore from localStorage
+    state.householdId = localStorage.getItem(LS_KEYS.householdId);
+    state.parentId = localStorage.getItem(LS_KEYS.parentId);
+
+    const params = new URLSearchParams(window.location.search);
+    const invite = (params.get('invite') || '').trim();
+
+    if (invite && !state.householdId) {
+        await showJoinFlow(invite);
+        return;
+    }
+
+    if (state.householdId && state.parentId) {
+        const ok = await loadHousehold();
+        if (!ok) {
+            // Reset local and start over
+            localStorage.removeItem(LS_KEYS.householdId);
+            localStorage.removeItem(LS_KEYS.parentId);
+            localStorage.removeItem(LS_KEYS.name);
+            state.householdId = null;
+            state.parentId = null;
+            return showEntry();
+        }
+        await enterWeekView();
+        return;
+    }
+
+    showEntry();
+}
+
+function showEntry() {
+    show('entryScreen');
+    document.getElementById('entryName').focus();
+}
+
+async function showJoinFlow(token) {
+    show('joinScreen');
+    document.getElementById('joinSubtitle').textContent = 'Loading invite…';
+    document.getElementById('joinForm').style.display = 'none';
+    document.getElementById('joinExpiredBox').style.display = 'none';
+
+    const result = await lookupInvite(token);
+    if (!result) {
+        document.getElementById('joinSubtitle').textContent = 'This invite is no longer active.';
+        document.getElementById('joinExpiredBox').style.display = 'block';
+        return;
+    }
+    const inviterName = Object.values(result.household.parents || {})[0]?.name || 'your partner';
+    document.getElementById('joinSubtitle').textContent = '';
+    document.getElementById('joinGreeting').innerHTML = `<strong>${escapeHtml(inviterName)}</strong> invited you to share drop-offs &amp; pickups on Tiny Care.`;
+    document.getElementById('joinForm').style.display = 'block';
+    document.getElementById('joinName').focus();
+
+    // wire button
+    const joinName = document.getElementById('joinName');
+    const btnJoin = document.getElementById('btnJoin');
+    const onInput = () => btnJoin.disabled = joinName.value.trim().length === 0;
+    joinName.addEventListener('input', onInput);
+
+    btnJoin.onclick = async () => {
+        if (joinName.value.trim().length === 0) return;
+        btnJoin.disabled = true;
+        btnJoin.textContent = 'Joining…';
+        const r = await joinHousehold(result.hid, result.household, joinName.value);
+        if (!r) {
+            btnJoin.disabled = false;
+            btnJoin.textContent = 'Join household';
+            return;
+        }
+        // Clean URL
+        history.replaceState({}, document.title, window.location.pathname);
+        await enterWeekView();
+    };
+}
+
+async function enterWeekView() {
+    show('weekScreen');
+    state.weekStart = startOfWeek(new Date());
+    state.lastAsksHash = '';
+    await fetchWeekAsks(true);
+    renderGrid();
+    startPolling();
+}
+
+// ==========================================================================
+// Wiring
+// ==========================================================================
+
+function wireEntry() {
+    const nameEl = document.getElementById('entryName');
+    const inviteEl = document.getElementById('entryInvite');
+    const btnCreate = document.getElementById('btnCreate');
+    const btnJoinLink = document.getElementById('btnJoinFromLink');
+
+    function update() {
+        btnCreate.disabled = nameEl.value.trim().length === 0;
+        btnJoinLink.disabled = inviteEl.value.trim().length === 0;
+    }
+    nameEl.addEventListener('input', update);
+    inviteEl.addEventListener('input', update);
+
+    btnCreate.addEventListener('click', async () => {
+        const name = nameEl.value.trim();
+        if (!name) return;
+        btnCreate.disabled = true;
+        btnCreate.textContent = 'Creating…';
+        const r = await createHousehold(name);
+        btnCreate.textContent = 'Create our household';
+        if (!r) { btnCreate.disabled = false; return; }
+        // Show invite share screen
+        document.getElementById('inviteLinkInput').value = inviteUrl(r.token);
+        show('inviteScreen');
+    });
+
+    btnJoinLink.addEventListener('click', () => {
+        const raw = inviteEl.value.trim();
+        // Allow paste of full URL or just the token
+        let token = raw;
+        try {
+            if (raw.includes('?')) {
+                const u = new URL(raw);
+                token = u.searchParams.get('invite') || raw;
+            }
+        } catch (e) { /* not a URL */ }
+        token = token.replace(/^.*invite=/, '').trim();
+        if (!token) return;
+        showJoinFlow(token);
+    });
+}
+
+function wireInviteShare() {
+    document.getElementById('copyInviteBtn').addEventListener('click', async () => {
+        const url = document.getElementById('inviteLinkInput').value;
+        try {
+            await navigator.clipboard.writeText(url);
+            const b = document.getElementById('copyInviteBtn');
+            b.textContent = 'Copied';
+            b.classList.add('copied');
+            setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1500);
+        } catch (e) { toast('Could not copy — long-press to copy manually'); }
+    });
+
+    document.getElementById('shareInviteBtn').addEventListener('click', async () => {
+        if (state.inviteToken) await shareInvite(state.inviteToken);
+    });
+
+    document.getElementById('skipInviteBtn').addEventListener('click', () => enterWeekView());
+}
+
+function wireWeek() {
+    document.getElementById('prevWeekBtn').addEventListener('click', () => {
+        state.weekStart = addDays(state.weekStart, -7);
+        state.lastAsksHash = '';
+        fetchWeekAsks(true).then(() => renderGrid());
+    });
+    document.getElementById('nextWeekBtn').addEventListener('click', () => {
+        state.weekStart = addDays(state.weekStart, 7);
+        state.lastAsksHash = '';
+        fetchWeekAsks(true).then(() => renderGrid());
+    });
+    document.getElementById('todayBtn').addEventListener('click', () => {
+        state.weekStart = startOfWeek(new Date());
+        state.lastAsksHash = '';
+        fetchWeekAsks(true).then(() => renderGrid());
+    });
+    document.getElementById('settingsBtn').addEventListener('click', async () => {
+        await loadHousehold();
+        renderSettings();
+        show('settingsScreen');
+    });
+}
+
+function wireSettings() {
+    document.getElementById('backToWeek').addEventListener('click', (e) => {
+        e.preventDefault();
+        show('weekScreen');
+        renderGrid();
+    });
+
+    document.getElementById('saveNameBtn').addEventListener('click', async () => {
+        const v = document.getElementById('settingsName').value.trim();
+        if (!v) return;
+        localStorage.setItem(LS_KEYS.name, v);
+        state.parents[state.parentId].name = v;
+        await dbPatch(`${ROOT}/households/${state.householdId}/parents/${state.parentId}`, { name: v });
+        toast('Name updated');
+    });
+
+    document.getElementById('notifToggle').addEventListener('click', async () => {
+        const enabled = localStorage.getItem(LS_KEYS.notifs) === '1';
+        if (!enabled) {
+            if ('Notification' in window) {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') { toast('Notifications blocked in your browser'); return; }
+            }
+            localStorage.setItem(LS_KEYS.notifs, '1');
+        } else {
+            localStorage.setItem(LS_KEYS.notifs, '0');
+        }
+        renderSettings();
+    });
+
+    document.getElementById('settingsCopyBtn').addEventListener('click', async () => {
+        const url = document.getElementById('settingsInviteLink').value;
+        try {
+            await navigator.clipboard.writeText(url);
+            const b = document.getElementById('settingsCopyBtn');
+            b.textContent = 'Copied';
+            b.classList.add('copied');
+            setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1500);
+        } catch (e) { toast('Could not copy'); }
+    });
+
+    document.getElementById('settingsShareBtn').addEventListener('click', async () => {
+        if (state.inviteToken) await shareInvite(state.inviteToken);
+    });
+
+    document.getElementById('settingsRegenBtn').addEventListener('click', async () => {
+        const t = await regenerateInvite();
+        document.getElementById('settingsInviteLink').value = inviteUrl(t);
+        toast('New invite link generated');
+    });
+
+    document.getElementById('leaveBtn').addEventListener('click', async () => {
+        const ok = await confirmModal({
+            title: 'Leave household?',
+            body: 'You will be removed and your claims will be cleared. Your partner keeps their schedule. You can rejoin later with a new invite.',
+            confirmLabel: 'Leave',
+            dangerous: true
+        });
+        if (!ok) return;
+        await leaveHousehold();
+        showEntry();
+    });
+}
+
+function wireJoinScreen() {
+    document.getElementById('goEntryBtn').addEventListener('click', () => {
+        history.replaceState({}, document.title, window.location.pathname);
+        showEntry();
+    });
+}
+
+// ==========================================================================
+// Init
+// ==========================================================================
+
+wireEntry();
+wireInviteShare();
+wireWeek();
+wireSettings();
+wireJoinScreen();
+boot();
+
+// Stop polling when tab is hidden, restart when visible
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopPolling();
+    else if (state.householdId && document.getElementById('weekScreen').classList.contains('active')) startPolling();
+});
+
+</script>
+</body>
+</html>
