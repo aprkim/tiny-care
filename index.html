@@ -964,7 +964,7 @@
 
         <div class="legend-row">
             <div class="legend" id="legend"></div>
-            <button class="today-btn" id="todayBtn" style="display:none;">Today</button>
+            <button class="today-btn" id="todayBtn" style="visibility:hidden;">Today</button>
         </div>
 
         <div class="week-bar">
@@ -1034,10 +1034,7 @@
                 <input class="form-input invite-code" id="settingsInviteLink" type="text" readonly />
                 <button class="copy-btn" id="settingsCopyBtn">Copy</button>
             </div>
-            <div style="display:flex; gap:8px; margin-top:10px;">
-                <button class="btn btn-secondary" id="settingsShareBtn" style="flex:1;">Share</button>
-                <button class="btn btn-ghost" id="settingsRegenBtn" style="flex:1;">New code</button>
-            </div>
+            <button class="btn btn-secondary" id="settingsShareBtn" style="margin-top:10px;">Share link</button>
         </div>
 
         <div class="settings-section">
@@ -1462,7 +1459,7 @@ function renderHeader() {
     const today = new Date();
     const thisWeek = startOfWeek(today);
     const isThisWeek = isSameDay(state.weekStart, thisWeek);
-    document.getElementById('todayBtn').style.display = isThisWeek ? 'none' : 'inline-block';
+    document.getElementById('todayBtn').style.visibility = isThisWeek ? 'hidden' : 'visible';
     const me = state.parents[state.parentId];
     const them = partner();
     let sub = `${me ? escapeHtml(me.name) : ''}`;
@@ -1716,22 +1713,6 @@ function stopPolling() {
 function inviteUrl(token) {
     const base = window.location.origin + window.location.pathname;
     return `${base}?invite=${token}`;
-}
-
-async function regenerateInvite() {
-    const token = inviteCode(8);
-    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    // Remove old invite mapping if exists
-    if (state.inviteToken) {
-        await dbDelete(`${ROOT}/invites/${state.inviteToken}`);
-    }
-    await dbPatch(`${ROOT}/households/${state.householdId}`, {
-        invite_token: token, invite_expires: expires
-    });
-    await dbPut(`${ROOT}/invites/${token}`, state.householdId);
-    state.inviteToken = token;
-    state.inviteExpires = expires;
-    return token;
 }
 
 async function shareInvite(token) {
@@ -2195,20 +2176,7 @@ function wireSettings() {
     });
 
     document.getElementById('settingsShareBtn').addEventListener('click', async () => {
-        if (!state.inviteToken) return;
-        const code = state.inviteToken;
-        const text = `Join our Tiny Care household at care.tinywins.space — enter code ${code}`;
-        if (navigator.share) {
-            try { await navigator.share({ title: 'Tiny Care invite', text }); return; } catch (e) { /* cancelled */ }
-        }
-        try { await navigator.clipboard.writeText(code); toast('Code copied'); }
-        catch (e) { toast(code, 4000); }
-    });
-
-    document.getElementById('settingsRegenBtn').addEventListener('click', async () => {
-        const t = await regenerateInvite();
-        document.getElementById('settingsInviteLink').value = t;
-        toast('New code generated');
+        if (state.inviteToken) await shareInvite(state.inviteToken);
     });
 
     document.getElementById('leaveBtn').addEventListener('click', async () => {
