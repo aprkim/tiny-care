@@ -370,11 +370,8 @@
             border-radius: 4px;
             border: 1.5px solid;
         }
-        .legend-chip.you-chip { background: var(--teal-bg); border-color: var(--teal-border); }
-        .legend-chip.partner-chip { background: var(--purple-bg); border-color: var(--purple-border); }
-        .legend-chip.you-purple { background: var(--purple-bg); border-color: var(--purple-border); }
-        .legend-chip.partner-teal { background: var(--teal-bg); border-color: var(--teal-border); }
-        .legend-chip.conflict-chip { background: var(--conflict-bg); border-color: var(--conflict-border); }
+        .legend-chip.chip-teal { background: var(--teal-bg); border-color: var(--teal-border); }
+        .legend-chip.chip-purple { background: var(--purple-bg); border-color: var(--purple-border); }
         .legend-chip.empty-chip {
             background: transparent;
             border-style: dashed;
@@ -539,25 +536,19 @@
         .slot.state-unmarked:hover::before { border-color: var(--info); }
         .slot.state-unmarked:hover .slot-hint { color: var(--info-strong); }
 
-        /* Asked of you — prominent solid teal: this is YOUR to-do */
-        .slot.state-asked-of-you::before {
-            border: 1.5px solid var(--teal-border);
-            border-style: solid;
-            background: var(--teal-bg);
-        }
-        .slot.state-asked-of-you .slot-name { color: var(--teal-strong); font-weight: 700; }
-        .slot.state-asked-of-you .slot-hint { color: var(--teal-text); }
+        /* Covered — filled with the COVERER's identity color (same on both screens) */
+        .slot.cover-teal::before { border: 1.5px solid var(--teal-border); background: var(--teal-bg); }
+        .slot.cover-teal .slot-name { color: var(--teal-strong); font-weight: 700; }
+        .slot.cover-teal .slot-hint { color: var(--teal-text); }
 
-        /* Asked of partner — dashed, muted: waiting on them */
-        .slot.state-asked-by-you::before {
-            border: 1.5px dashed var(--purple-border);
-            background: transparent;
-        }
-        .slot.state-asked-by-you .slot-name { color: var(--purple-text); font-weight: 600; }
-        .slot.state-asked-by-you .slot-hint { color: var(--purple-text); opacity: 0.85; }
-        /* once the partner confirms, surface it in positive teal */
-        .slot.state-asked-by-you.is-confirmed::before { border-color: var(--teal-border); }
-        .slot.state-asked-by-you.is-confirmed .slot-hint { color: var(--teal-text); opacity: 1; font-weight: 600; }
+        .slot.cover-purple::before { border: 1.5px solid var(--purple-border); background: var(--purple-bg); }
+        .slot.cover-purple .slot-name { color: var(--purple-strong); font-weight: 700; }
+        .slot.cover-purple .slot-hint { color: var(--purple-text); }
+
+        /* Pending ask — nobody is covering yet: dashed outline, no fill */
+        .slot.state-pending::before { border: 1.5px dashed var(--border); background: transparent; }
+        .slot.state-pending .slot-name { color: var(--text); font-weight: 600; }
+        .slot.state-pending .slot-hint { color: var(--muted); }
 
         .slot:disabled { cursor: default; }
 
@@ -1469,22 +1460,19 @@ function renderHeader() {
 
 function renderLegend() {
     const el = document.getElementById('legend');
+    const me = state.parents[state.parentId];
     const them = partner();
-    const themName = them ? them.name : 'partner';
+    const myColor = me?.color || 'teal';
+    const myName = me?.name || 'You';
 
-    el.innerHTML = `
-        <span class="legend-item">
-            <span class="legend-chip you-chip"></span>
-            ${escapeHtml(themName)} asked you
-        </span>
-        <span class="legend-item">
-            <span class="legend-chip partner-chip" style="border-style: dashed; background: transparent;"></span>
-            You asked ${escapeHtml(themName)}
-        </span>
-        <span class="legend-item">
-            <span class="legend-chip empty-chip"></span> Default
-        </span>
-    `;
+    const items = [
+        `<span class="legend-item"><span class="legend-chip chip-${myColor}"></span> ${escapeHtml(myName)} covers</span>`
+    ];
+    if (them) {
+        items.push(`<span class="legend-item"><span class="legend-chip chip-${them.color}"></span> ${escapeHtml(them.name)} covers</span>`);
+    }
+    items.push(`<span class="legend-item"><span class="legend-chip empty-chip"></span> Open</span>`);
+    el.innerHTML = items.join('');
 }
 
 function escapeHtml(s) {
@@ -1515,6 +1503,8 @@ function renderGrid(opts={}) {
     const body = document.getElementById('gridBody');
     const them = partner();
     const themName = them ? them.name : 'partner';
+    const myColor = selfColor();
+    const themColor = them ? them.color : (myColor === 'teal' ? 'purple' : 'teal');
 
     let askedOfYou = 0, askedByYou = 0, youreCovering = 0;
 
@@ -1541,35 +1531,36 @@ function renderGrid(opts={}) {
                 if (!them) disabled = true;
                 if (past) disabled = true;
             } else if (st.kind === 'you-claimed') {
-                cls += ' state-asked-of-you'; // reuse teal "you cover" styling
+                cls += ` cover-${myColor}`; // you cover → your identity color
                 nameText = `${SLOT_LABELS[s]} · you cover`;
                 hint = 'tap to unclaim';
                 youreCovering++;
                 if (past) disabled = true;
             } else if (st.kind === 'partner-claimed') {
-                cls += ' state-asked-by-you is-confirmed'; // reuse "partner covers" styling
+                cls += ` cover-${themColor}`; // partner covers → their identity color
                 nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
                 hint = `${themName}'s covering`;
                 disabled = true; // can't unclaim your partner's slot
             } else if (st.kind === 'asked-of-you') {
-                cls += ' state-asked-of-you';
                 const confirmed = !!st.ask.confirmed_at;
                 if (confirmed) {
+                    cls += ` cover-${myColor}`; // you confirmed → you cover
                     nameText = `${SLOT_LABELS[s]} · you cover ✓`;
                     hint = st.ask.note ? `Reason: ${st.ask.note}` : '';
                 } else {
+                    cls += ' state-pending'; // not covered yet — no fill
                     nameText = `${SLOT_LABELS[s]} · ${themName} asked`;
                     hint = st.ask.note ? `Reason: ${st.ask.note}` : 'tap to confirm';
                 }
                 askedOfYou++;
                 disabled = true; // tap re-enabled below to open confirm/view
             } else if (st.kind === 'asked-by-you') {
-                cls += ' state-asked-by-you';
                 if (st.ask.confirmed_at) {
+                    cls += ` cover-${themColor}`; // they confirmed → they cover
                     nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
                     hint = `✓ ${themName} confirmed`;
-                    cls += ' is-confirmed';
                 } else {
+                    cls += ' state-pending'; // not covered yet — no fill
                     nameText = `${SLOT_LABELS[s]} · Asked ${themName}`;
                     hint = `tap to un-ask`;
                 }
