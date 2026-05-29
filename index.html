@@ -839,11 +839,11 @@
 
         <div class="setup-form" style="margin-top: 12px;">
             <div class="form-group">
-                <label class="form-label" for="entryInvite">Have an invite link?</label>
-                <input class="form-input" id="entryInvite" type="text" placeholder="Paste link or token" autocomplete="off" />
+                <label class="form-label" for="entryInvite">Have a code?</label>
+                <input class="form-input" id="entryInvite" type="text" placeholder="Enter code" autocomplete="off" />
             </div>
             <div class="form-group">
-                <button class="btn btn-secondary" id="btnJoinFromLink" disabled>Join with link</button>
+                <button class="btn btn-secondary" id="btnJoinFromLink" disabled>Join</button>
             </div>
         </div>
     </div>
@@ -922,7 +922,7 @@
 <!-- ==================== WEEK / MAIN ==================== -->
 <div id="weekScreen" class="screen">
     <div class="container">
-        <a href="https://tinywins.app/spaces/" class="suite-back-link">← Back to Tiny</a>
+        <a href="https://tinywins.space/" class="suite-back-link">← TinyWins</a>
 
         <div class="app-header">
             <div>
@@ -1840,9 +1840,7 @@ async function openViewAskModal(day, slot, partnerName, ask) {
     const isConfirmed = !!ask.confirmed_at;
     const r = await openModal({
         title: `${partnerName} asked you to cover ${slotLabel(day, slot)}`,
-        body: isConfirmed
-            ? `You've confirmed you'll cover this.`
-            : (ask.note ? '' : `<em>${escapeHtml(partnerName)} didn't leave a note.</em>`),
+        body: isConfirmed ? `You've confirmed you'll cover this.` : '',
         existingNote: ask.note ? { text: ask.note, label: `${partnerName}'s note` } : null,
         confirmLabel: isConfirmed ? 'Un-confirm' : "Confirm I'll cover",
         cancelLabel: 'Close',
