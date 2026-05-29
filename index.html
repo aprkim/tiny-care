@@ -29,6 +29,10 @@
             --accent-hover: #A02838;
             --radius: 16px;
 
+            /* Muted info/link blue — signals a tappable action */
+            --info: #4F6E9C;
+            --info-strong: #3E5C86;
+
             /* Parent A — sage green (the "teal" in spec) */
             --teal-bg: #E7F1EB;
             --teal-border: #C8DCD0;
@@ -511,12 +515,12 @@
             line-height: 1.2;
         }
 
-        /* Unmarked — the default unspoken arrangement, very subtle */
+        /* Unmarked — tappable: solid light border + blue "ask" affordance */
+        .slot.state-unmarked::before { border: 1.5px solid var(--border); }
         .slot.state-unmarked .slot-name { color: var(--muted-light); font-weight: 500; }
-        .slot.state-unmarked .slot-hint { color: var(--muted-light); }
-        .slot.state-unmarked:hover::before { border-color: var(--accent); border-style: dashed; }
-        .slot.state-unmarked:hover .slot-name { color: var(--accent); }
-        .slot.state-unmarked:hover .slot-hint { color: var(--accent); }
+        .slot.state-unmarked .slot-hint { color: var(--info); }
+        .slot.state-unmarked:hover::before { border-color: var(--info); }
+        .slot.state-unmarked:hover .slot-hint { color: var(--info-strong); }
 
         /* Asked of you — prominent solid teal: this is YOUR to-do */
         .slot.state-asked-of-you::before {
@@ -1500,9 +1504,14 @@ function renderGrid(opts={}) {
                 disabled = true; // only asker can un-flag
             } else if (st.kind === 'asked-by-you') {
                 cls += ' state-asked-by-you';
-                nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
-                if (st.ask.confirmed_at) { hint = `✓ ${themName} confirmed`; cls += ' is-confirmed'; }
-                else hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
+                if (st.ask.confirmed_at) {
+                    nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
+                    hint = `✓ ${themName} confirmed`;
+                    cls += ' is-confirmed';
+                } else {
+                    nameText = `${SLOT_LABELS[s]} · Asked ${themName}`;
+                    hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
+                }
                 askedByYou++;
                 if (past) disabled = true;
             }
