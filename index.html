@@ -532,6 +532,9 @@
         }
         .slot.state-asked-by-you .slot-name { color: var(--purple-text); font-weight: 600; }
         .slot.state-asked-by-you .slot-hint { color: var(--purple-text); opacity: 0.85; }
+        /* once the partner confirms, surface it in positive teal */
+        .slot.state-asked-by-you.is-confirmed::before { border-color: var(--teal-border); }
+        .slot.state-asked-by-you.is-confirmed .slot-hint { color: var(--teal-text); opacity: 1; font-weight: 600; }
 
         .slot:disabled { cursor: default; }
 
@@ -861,7 +864,7 @@
                 </svg>
             </div>
             <h1 class="onboarding-title">Invite your partner</h1>
-            <p class="onboarding-subtitle">Send them this link. It works for 7 days and only one person can use it.</p>
+            <p class="onboarding-subtitle">Valid for 7 days, one use only.</p>
         </div>
 
         <div class="setup-form">
@@ -871,7 +874,6 @@
                     <input class="form-input" id="inviteLinkInput" type="text" readonly />
                     <button class="copy-btn" id="copyInviteBtn">Copy</button>
                 </div>
-                <p class="invite-hint">Tap <strong>Share</strong> to send via Messages, WhatsApp, or email. You'll both see the grid the moment your partner joins.</p>
             </div>
 
             <div class="form-group">
@@ -1028,7 +1030,7 @@
             <div id="modalExistingNoteText"></div>
         </div>
         <div class="modal-note-section" id="modalNoteSection" style="display:none;">
-            <label class="form-label" for="modalNoteInput">Note (optional)</label>
+            <label class="form-label" for="modalNoteInput">Note</label>
             <input class="form-input" id="modalNoteInput" type="text" maxlength="60" placeholder="e.g. early meeting" />
             <div class="note-count"><span id="modalNoteCount">0</span>/60</div>
         </div>
@@ -1366,6 +1368,23 @@ async function deleteAsk(day, slot) {
     if (!ok) toast('Could not save. Check connection.');
 }
 
+// Confirmation is written by the asked partner onto the asker's ask node.
+async function setConfirmed(day, slot, confirmed) {
+    const key = `${day}_${slot}`;
+    const ask = state.asks[key];
+    if (!ask) return;
+    const path = `${ROOT}/households/${state.householdId}/asks/${weekIso()}/${key}/confirmed_at`;
+    const now = Date.now();
+    state.lastMutationAt = now;
+    if (confirmed) ask.confirmed_at = now; else delete ask.confirmed_at;
+    state.lastAsksHash = JSON.stringify(state.asks);
+    state.lastUpdatedAt = now;
+    renderGrid({ pulse: true, pulseKey: key });
+    const ok = confirmed ? await dbPut(path, now) : await dbDelete(path);
+    state.lastMutationAt = Date.now();
+    if (!ok) toast('Could not save. Check connection.');
+}
+
 // ==========================================================================
 // Rendering
 // ==========================================================================
@@ -1398,9 +1417,8 @@ function renderHeader() {
     document.getElementById('todayBtn').style.display = isThisWeek ? 'none' : 'inline-flex';
     const me = state.parents[state.parentId];
     const them = partner();
-    let sub = `${me ? me.name : ''}`;
-    if (them) sub += ` &amp; ${them.name}`;
-    else sub += ` · waiting for partner to join`;
+    let sub = `${me ? escapeHtml(me.name) : ''}`;
+    if (them) sub += ` &amp; ${escapeHtml(them.name)}`;
     document.getElementById('weekHeaderSub').innerHTML = sub;
 }
 
@@ -1473,14 +1491,16 @@ function renderGrid(opts={}) {
                 if (past) disabled = true;
             } else if (st.kind === 'asked-of-you') {
                 cls += ' state-asked-of-you';
-                nameText = `${SLOT_LABELS[s]} · you cover`;
+                const confirmed = !!st.ask.confirmed_at;
+                nameText = `${SLOT_LABELS[s]} · you cover${confirmed ? ' ✓' : ''}`;
                 hint = st.ask.note ? `${themName}: ${st.ask.note}` : `${themName} asked you`;
                 askedOfYou++;
                 disabled = true; // only asker can un-flag
             } else if (st.kind === 'asked-by-you') {
                 cls += ' state-asked-by-you';
                 nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
-                hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
+                if (st.ask.confirmed_at) { hint = `✓ ${themName} confirmed`; cls += ' is-confirmed'; }
+                else hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
                 askedByYou++;
                 if (past) disabled = true;
             }
@@ -1793,8 +1813,7 @@ async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=fal
 async function openAskModal(day, slot, partnerName) {
     const r = await openModal({
         title: `Ask ${partnerName} to cover ${slotLabel(day, slot)}?`,
-        body: `${partnerName} will see this on their grid. Add a short note so they know why (optional).`,
-        noteInput: { initial: '', placeholder: 'e.g. early meeting' },
+        noteInput: { initial: '', placeholder: 'e.g. early meeting (optional)' },
         confirmLabel: `Ask ${partnerName}`
     });
     if (r.confirmed) {
@@ -1818,13 +1837,21 @@ async function openUnaskModal(day, slot, partnerName, ask) {
 }
 
 async function openViewAskModal(day, slot, partnerName, ask) {
-    await openModal({
+    const isConfirmed = !!ask.confirmed_at;
+    const r = await openModal({
         title: `${partnerName} asked you to cover ${slotLabel(day, slot)}`,
-        body: ask.note ? '' : `<em>${escapeHtml(partnerName)} didn't leave a note.</em>`,
+        body: isConfirmed
+            ? `You've confirmed you'll cover this.`
+            : (ask.note ? '' : `<em>${escapeHtml(partnerName)} didn't leave a note.</em>`),
         existingNote: ask.note ? { text: ask.note, label: `${partnerName}'s note` } : null,
-        confirmLabel: 'Got it',
-        hideCancel: true
+        confirmLabel: isConfirmed ? 'Un-confirm' : "Confirm I'll cover",
+        cancelLabel: 'Close',
+        dangerous: isConfirmed
     });
+    if (r.confirmed) {
+        await setConfirmed(day, slot, !isConfirmed);
+        toast(isConfirmed ? 'Un-confirmed' : `Confirmed — you'll cover ${slotLabel(day, slot)}`);
+    }
 }
 
 // ==========================================================================
