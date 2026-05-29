@@ -585,6 +585,11 @@
             border-color: var(--teal-border);
             color: var(--teal-strong);
         }
+        .count-pill.youre-covering {
+            background: var(--teal-bg);
+            border-color: var(--teal-border);
+            color: var(--teal-strong);
+        }
         .count-pill.asked-by-you {
             background: var(--purple-bg);
             border-color: var(--purple-border);
@@ -1391,6 +1396,26 @@ async function setConfirmed(day, slot, confirmed) {
     if (!ok) toast('Could not save. Check connection.');
 }
 
+// Self-claim: the current parent commits to cover the slot themselves (no ask).
+async function claimSlot(day, slot) {
+    const key = `${day}_${slot}`;
+    const path = `${ROOT}/households/${state.householdId}/asks/${weekIso()}/${key}`;
+    const now = Date.now();
+    const record = { claimer_id: state.parentId, created_at: now, updated_at: now };
+    state.lastMutationAt = now;
+    state.asks[key] = record;
+    state.lastAsksHash = JSON.stringify(state.asks);
+    state.lastUpdatedAt = now;
+    renderGrid({ pulse: true, pulseKey: key });
+    const ok = await dbPut(path, record);
+    state.lastMutationAt = Date.now();
+    if (!ok) toast('Could not save. Check connection.');
+}
+
+async function unclaimSlot(day, slot) {
+    await deleteAsk(day, slot); // same DB op — remove the slot record
+}
+
 // ==========================================================================
 // Rendering
 // ==========================================================================
@@ -1454,10 +1479,16 @@ function escapeHtml(s) {
 
 function slotState(day, slot) {
     const key = `${day}_${slot}`;
-    const ask = state.asks[key];
-    if (!ask || !ask.asker_id) return { kind: 'unmarked' };
-    if (ask.asker_id === state.parentId) return { kind: 'asked-by-you', ask };
-    return { kind: 'asked-of-you', ask };
+    const r = state.asks[key];
+    if (!r) return { kind: 'unmarked' };
+    if (r.claimer_id) {
+        return r.claimer_id === state.parentId
+            ? { kind: 'you-claimed', ask: r }
+            : { kind: 'partner-claimed', ask: r };
+    }
+    if (!r.asker_id) return { kind: 'unmarked' };
+    if (r.asker_id === state.parentId) return { kind: 'asked-by-you', ask: r };
+    return { kind: 'asked-of-you', ask: r };
 }
 
 function slotLabel(day, slot) {
@@ -1471,7 +1502,7 @@ function renderGrid(opts={}) {
     const them = partner();
     const themName = them ? them.name : 'partner';
 
-    let askedOfYou = 0, askedByYou = 0;
+    let askedOfYou = 0, askedByYou = 0, youreCovering = 0;
 
     const html = DAYS.map((d, di) => {
         const date = addDays(state.weekStart, di);
@@ -1492,9 +1523,20 @@ function renderGrid(opts={}) {
 
             if (st.kind === 'unmarked') {
                 cls += ' state-unmarked';
-                hint = them ? `Ask ${themName}` : 'Waiting for partner';
+                hint = them ? `I'll cover · Ask ${themName}` : 'Waiting for partner';
                 if (!them) disabled = true;
                 if (past) disabled = true;
+            } else if (st.kind === 'you-claimed') {
+                cls += ' state-asked-of-you'; // reuse teal "you cover" styling
+                nameText = `${SLOT_LABELS[s]} · you cover`;
+                hint = 'tap to unclaim';
+                youreCovering++;
+                if (past) disabled = true;
+            } else if (st.kind === 'partner-claimed') {
+                cls += ' state-asked-by-you is-confirmed'; // reuse "partner covers" styling
+                nameText = `${SLOT_LABELS[s]} · ${themName} covers`;
+                hint = `${themName}'s covering`;
+                disabled = true; // can't unclaim your partner's slot
             } else if (st.kind === 'asked-of-you') {
                 cls += ' state-asked-of-you';
                 const confirmed = !!st.ask.confirmed_at;
@@ -1510,7 +1552,7 @@ function renderGrid(opts={}) {
                     cls += ' is-confirmed';
                 } else {
                     nameText = `${SLOT_LABELS[s]} · Asked ${themName}`;
-                    hint = st.ask.note ? `you: ${st.ask.note}` : `tap to un-ask`;
+                    hint = `tap to un-ask`;
                 }
                 askedByYou++;
                 if (past) disabled = true;
@@ -1547,7 +1589,7 @@ function renderGrid(opts={}) {
         }
     });
 
-    renderFooter(askedOfYou, askedByYou, themName);
+    renderFooter(askedOfYou, askedByYou, youreCovering, themName);
 }
 
 function relativeTime(ts) {
@@ -1564,7 +1606,7 @@ function relativeTime(ts) {
     return `${d}d ago`;
 }
 
-function renderFooter(askedOfYou, askedByYou, themName) {
+function renderFooter(askedOfYou, askedByYou, youreCovering, themName) {
     const el = document.getElementById('weekFooter');
     const them = partner();
     const parts = [];
@@ -1574,9 +1616,12 @@ function renderFooter(askedOfYou, askedByYou, themName) {
         return;
     }
 
-    if (askedOfYou === 0 && askedByYou === 0) {
-        parts.push(`<span class="count-pill clean">All quiet — no asks this week</span>`);
+    if (askedOfYou === 0 && askedByYou === 0 && youreCovering === 0) {
+        parts.push(`<span class="count-pill clean">All quiet this week</span>`);
     } else {
+        if (youreCovering > 0) {
+            parts.push(`<span class="count-pill youre-covering">${youreCovering} you're covering</span>`);
+        }
         if (askedOfYou > 0) {
             parts.push(`<span class="count-pill asked-of-you">${askedOfYou} ${themName} asked you to cover</span>`);
         }
@@ -1590,7 +1635,7 @@ function renderFooter(askedOfYou, askedByYou, themName) {
     el.innerHTML = parts.join('');
 }
 
-function onSlotClick(e) {
+async function onSlotClick(e) {
     const btn = e.currentTarget;
     if (btn.disabled) return;
     const day = btn.dataset.day;
@@ -1600,7 +1645,16 @@ function onSlotClick(e) {
     if (!them) { toast('Wait until your partner joins'); return; }
 
     if (st.kind === 'unmarked') {
-        openAskModal(day, slot, them.name);
+        const choice = await openSlotChoiceModal(day, slot, them.name);
+        if (choice === 'claim') {
+            await claimSlot(day, slot);
+            toast(`You're covering ${slotLabel(day, slot)}`);
+        } else if (choice === 'ask') {
+            openAskModal(day, slot, them.name);
+        }
+    } else if (st.kind === 'you-claimed') {
+        await unclaimSlot(day, slot);
+        toast(`Unclaimed ${slotLabel(day, slot)}`);
     } else if (st.kind === 'asked-by-you') {
         openUnaskModal(day, slot, them.name, st.ask);
     } else if (st.kind === 'asked-of-you') {
@@ -1819,6 +1873,41 @@ function openModal({
 async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=false }) {
     const r = await openModal({ title, body, confirmLabel, dangerous });
     return r.confirmed;
+}
+
+// Empty-slot chooser: returns 'claim' | 'ask' | null. Reuses the shared modal
+// shell, swapping in two action buttons and restoring them on close.
+function openSlotChoiceModal(day, slot, partnerName) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('modalOverlay');
+        document.getElementById('modalTitle').textContent = slotLabel(day, slot);
+        const bodyEl = document.getElementById('modalBody');
+        bodyEl.innerHTML = `Who's covering this one?`;
+        bodyEl.style.display = 'block';
+        document.getElementById('modalExistingNote').style.display = 'none';
+        document.getElementById('modalNoteSection').style.display = 'none';
+
+        const actions = document.querySelector('#modalOverlay .modal-actions');
+        const savedHTML = actions.innerHTML;
+        actions.innerHTML =
+            `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
+            `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
+
+        overlay.classList.add('active');
+        const cleanup = (val) => {
+            overlay.classList.remove('active');
+            actions.innerHTML = savedHTML; // restore default Cancel/Confirm for openModal
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+        };
+        document.getElementById('choiceCover').addEventListener('click', () => cleanup('claim'));
+        document.getElementById('choiceAsk').addEventListener('click', () => cleanup('ask'));
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup(null); };
+        const onKey = (e) => { if (e.key === 'Escape') cleanup(null); };
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+    });
 }
 
 async function openAskModal(day, slot, partnerName) {
