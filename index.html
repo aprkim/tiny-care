@@ -880,7 +880,7 @@
                 <button class="btn btn-primary" id="shareInviteBtn">Share invite</button>
             </div>
             <div class="form-group">
-                <button class="btn btn-ghost" id="skipInviteBtn">Continue to grid</button>
+                <button class="btn btn-ghost" id="skipInviteBtn">See my week</button>
             </div>
         </div>
     </div>
@@ -1486,13 +1486,13 @@ function renderGrid(opts={}) {
 
             if (st.kind === 'unmarked') {
                 cls += ' state-unmarked';
-                hint = them ? `+ ask ${themName}` : '+ waiting for partner';
+                hint = them ? `Ask ${themName}` : 'Waiting for partner';
                 if (!them) disabled = true;
                 if (past) disabled = true;
             } else if (st.kind === 'asked-of-you') {
                 cls += ' state-asked-of-you';
                 const confirmed = !!st.ask.confirmed_at;
-                nameText = `${SLOT_LABELS[s]} · you cover${confirmed ? ' ✓' : ''}`;
+                nameText = confirmed ? `${SLOT_LABELS[s]} · you cover ✓` : SLOT_LABELS[s];
                 hint = st.ask.note ? `${themName}: ${st.ask.note}` : `${themName} asked you`;
                 askedOfYou++;
                 disabled = true; // only asker can un-flag
