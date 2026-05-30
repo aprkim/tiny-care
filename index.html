@@ -1073,14 +1073,15 @@
             </div>
         </div>
 
-        <div class="settings-section" id="inviteAgainSection" style="display:none;">
+        <div class="settings-section" id="inviteAgainSection">
             <h3>Invite code</h3>
-            <p class="setting-desc" style="margin-bottom:12px;">Your partner hasn't joined yet. Share this code — they enter it on the start screen.</p>
-            <div class="invite-link-row">
+            <p class="setting-desc" id="settingsInviteDesc" style="margin-bottom:12px;"></p>
+            <div class="invite-link-row" id="settingsInviteRow" style="display:none;">
                 <input class="form-input invite-code" id="settingsInviteLink" type="text" readonly />
                 <button class="copy-btn" id="settingsCopyBtn">Copy</button>
             </div>
-            <button class="btn btn-secondary" id="settingsShareBtn" style="margin-top:10px;">Share link</button>
+            <button class="btn btn-secondary" id="settingsShareBtn" style="margin-top:10px; display:none;">Share link</button>
+            <button class="btn btn-secondary" id="settingsGenerateBtn" style="margin-top:10px; display:none;">Generate invite code</button>
         </div>
 
         <div class="settings-section">
@@ -1284,6 +1285,23 @@ async function createHousehold(name) {
     state.parents = { [pid]: { name: name.trim(), color: 'teal', joined_at: now } };
 
     return { hid, pid, token };
+}
+
+async function regenerateInvite() {
+    const hid = state.householdId;
+    if (!hid) return null;
+    const token = inviteCode(8);
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // Clear any stale token so it can't be used twice
+    if (state.inviteToken) {
+        await dbDelete(`${ROOT}/invites/${state.inviteToken}`);
+    }
+    await dbPut(`${ROOT}/households/${hid}/invite_token`, token);
+    await dbPut(`${ROOT}/households/${hid}/invite_expires`, expires);
+    await dbPut(`${ROOT}/invites/${token}`, hid);
+    state.inviteToken = token;
+    state.inviteExpires = expires;
+    return token;
 }
 
 async function lookupInvite(token) {
@@ -1860,13 +1878,25 @@ function renderSettings() {
     document.getElementById('parentsList').outerHTML =
         `<div id="parentsList" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:8px 16px;">${parentsHtml.join('')}</div>`;
 
-    // Invite section
-    const inviteSection = document.getElementById('inviteAgainSection');
-    if (!them && state.inviteToken) {
-        inviteSection.style.display = 'block';
+    // Invite section — always visible. Shows the active code if there is one,
+    // otherwise offers to generate a new one.
+    const descEl = document.getElementById('settingsInviteDesc');
+    const rowEl = document.getElementById('settingsInviteRow');
+    const shareEl = document.getElementById('settingsShareBtn');
+    const genEl = document.getElementById('settingsGenerateBtn');
+    if (state.inviteToken) {
+        descEl.textContent = them
+            ? 'Anyone with this code can join your household.'
+            : "Your partner hasn't joined yet. Share this code — they enter it on the start screen.";
+        rowEl.style.display = 'flex';
+        shareEl.style.display = 'inline-flex';
+        genEl.style.display = 'none';
         document.getElementById('settingsInviteLink').value = state.inviteToken;
     } else {
-        inviteSection.style.display = 'none';
+        descEl.textContent = 'No active invite code. Generate one to share.';
+        rowEl.style.display = 'none';
+        shareEl.style.display = 'none';
+        genEl.style.display = 'inline-flex';
     }
 
     // Notifications toggle
@@ -2337,6 +2367,19 @@ function wireSettings() {
 
     document.getElementById('settingsShareBtn').addEventListener('click', async () => {
         if (state.inviteToken) await shareInvite(state.inviteToken);
+    });
+
+    document.getElementById('settingsGenerateBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('settingsGenerateBtn');
+        btn.disabled = true;
+        const token = await regenerateInvite();
+        btn.disabled = false;
+        if (token) {
+            renderSettings();
+            toast('Invite code created');
+        } else {
+            toast('Could not create code');
+        }
     });
 
     document.getElementById('leaveBtn').addEventListener('click', async () => {
