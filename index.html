@@ -1882,25 +1882,29 @@ function renderSettings() {
     document.getElementById('parentsList').outerHTML =
         `<div id="parentsList" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:8px 16px;">${parentsHtml.join('')}</div>`;
 
-    // Invite section — always visible. Shows the active code if there is one,
-    // otherwise offers to generate a new one.
+    // Invite section — only useful when the household has room for someone
+    // new. Once both parents are present, hide it entirely.
+    const inviteSection = document.getElementById('inviteAgainSection');
     const descEl = document.getElementById('settingsInviteDesc');
     const rowEl = document.getElementById('settingsInviteRow');
     const shareEl = document.getElementById('settingsShareBtn');
     const genEl = document.getElementById('settingsGenerateBtn');
-    if (state.inviteToken) {
-        descEl.textContent = them
-            ? 'Anyone with this code can join your household.'
-            : "Your partner hasn't joined yet. Share this code — they enter it on the start screen.";
-        rowEl.style.display = 'flex';
-        shareEl.style.display = 'inline-flex';
-        genEl.style.display = 'none';
-        document.getElementById('settingsInviteLink').value = state.inviteToken;
+    if (them) {
+        inviteSection.style.display = 'none';
     } else {
-        descEl.textContent = 'No active invite code. Generate one to share.';
-        rowEl.style.display = 'none';
-        shareEl.style.display = 'none';
-        genEl.style.display = 'inline-flex';
+        inviteSection.style.display = 'block';
+        if (state.inviteToken) {
+            descEl.textContent = "Your partner hasn't joined yet. Share this code — they enter it on the start screen.";
+            rowEl.style.display = 'flex';
+            shareEl.style.display = 'inline-flex';
+            genEl.style.display = 'none';
+            document.getElementById('settingsInviteLink').value = state.inviteToken;
+        } else {
+            descEl.textContent = 'No active invite code. Generate one to share.';
+            rowEl.style.display = 'none';
+            shareEl.style.display = 'none';
+            genEl.style.display = 'inline-flex';
+        }
     }
 
     // Notifications toggle
