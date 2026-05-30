@@ -970,7 +970,7 @@
                 </svg>
             </div>
             <h1 class="onboarding-title">Join the household</h1>
-            <p class="onboarding-subtitle" id="joinSubtitle">Loading invite…</p>
+            <p class="onboarding-subtitle" id="joinSubtitle">Checking code…</p>
         </div>
 
         <div class="setup-form" id="joinForm" style="display:none;">
@@ -986,7 +986,7 @@
 
         <div class="setup-form" id="joinExpiredBox" style="display:none;">
             <div class="invite-expired">
-                This invite link has expired or has already been used. Ask your partner to send a new one from the Tiny Care settings.
+                This invite code is no longer active — it may have expired, or someone has already joined with it. Ask your partner to send a new code from their Tiny Care settings.
             </div>
             <button class="btn btn-secondary" id="goEntryBtn">Back to start</button>
         </div>
@@ -2177,13 +2177,13 @@ function showEntry() {
 
 async function showJoinFlow(token) {
     show('joinScreen');
-    document.getElementById('joinSubtitle').textContent = 'Loading invite…';
+    document.getElementById('joinSubtitle').textContent = 'Checking code…';
     document.getElementById('joinForm').style.display = 'none';
     document.getElementById('joinExpiredBox').style.display = 'none';
 
     const result = await lookupInvite(token);
     if (!result) {
-        document.getElementById('joinSubtitle').textContent = 'This invite is no longer active.';
+        document.getElementById('joinSubtitle').textContent = 'This code is no longer active.';
         document.getElementById('joinExpiredBox').style.display = 'block';
         return;
     }
