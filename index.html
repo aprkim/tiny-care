@@ -80,6 +80,12 @@
             justify-content: center;
             min-height: 100vh;
         }
+        /* Join screen has less content than entry; bias it slightly upward
+           so the title doesn't sit dead-center and feel low. */
+        #joinScreen.onboarding.active {
+            justify-content: flex-start;
+            padding-top: clamp(48px, 18vh, 160px);
+        }
         /* display:flex only when active — keeps inactive screens hidden via .screen rule */
 
         .onboarding-inner {
