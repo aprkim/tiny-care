@@ -742,7 +742,19 @@
         .modal-actions .btn { flex: 1; }
         .modal-actions .btn.single { flex: 0 0 auto; padding-left: 20px; padding-right: 20px; margin-left: auto; }
 
-        .modal-note-section { margin-bottom: 16px; }
+        .modal-note-section {
+            margin-bottom: 16px;
+            max-height: 240px;
+            overflow: hidden;
+            transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.28s ease, margin-bottom 0.28s ease;
+        }
+        .modal-note-section.note-collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            pointer-events: none;
+        }
         .modal-note-section .form-label { font-size: 12px; }
         .modal-note-section .form-input { padding: 10px 12px; font-size: 14px; }
         .note-count {
@@ -752,6 +764,18 @@
             margin-top: 4px;
         }
         .note-count.warn { color: var(--accent); }
+        .modal-back-link {
+            background: none;
+            border: none;
+            padding: 0 0 8px;
+            color: var(--info);
+            font: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+            display: block;
+        }
+        .modal-back-link:hover { color: var(--info-strong); }
 
         .existing-note {
             background: var(--teal-bg);
@@ -1879,9 +1903,9 @@ async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=fal
 }
 
 // Empty-slot chooser: returns { kind: 'claim' } | { kind: 'ask', note } | null.
-// Two states. State 1: [I'll cover] [Ask X] only — no clutter. State 2 (after
-// tapping Ask): same row but the primary becomes [Send], and a note input
-// slides in below the buttons. "I'll cover" still claims from either state.
+// Two states. State 1: [I'll cover] [Ask X] only — no clutter. Tapping Ask
+// animates a note input + Back link in below, swaps the primary to [Send].
+// "I'll cover" still claims from either state.
 function openSlotChoiceModal(day, slot, partnerName) {
     return new Promise(resolve => {
         const overlay = document.getElementById('modalOverlay');
@@ -1897,14 +1921,22 @@ function openSlotChoiceModal(day, slot, partnerName) {
         const noteLabel = noteSection.querySelector('label');
         const noteOrigNext = noteSection.nextSibling;
         const noteOrigParent = noteSection.parentNode;
-        noteSection.style.display = 'none';
 
         const actions = document.querySelector('#modalOverlay .modal-actions');
         const savedHTML = actions.innerHTML;
 
+        // Park note section below the buttons, collapsed, for the whole modal.
+        actions.parentNode.insertBefore(noteSection, actions.nextSibling);
+        noteSection.style.display = 'block';
+        noteSection.classList.add('note-collapsed');
+        noteLabel.style.display = 'none';
+
+        let backLink = null;
+
         const renderChoice = () => {
-            noteSection.style.display = 'none';
+            noteSection.classList.add('note-collapsed');
             noteInputEl.oninput = null;
+            if (backLink) { backLink.remove(); backLink = null; }
             actions.innerHTML =
                 `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
                 `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
@@ -1916,10 +1948,6 @@ function openSlotChoiceModal(day, slot, partnerName) {
             actions.innerHTML =
                 `<button class="btn btn-secondary" id="askCover">I'll cover</button>` +
                 `<button class="btn btn-primary" id="askSend">Send</button>`;
-            // Slide note section in below the buttons
-            actions.parentNode.insertBefore(noteSection, actions.nextSibling);
-            noteSection.style.display = 'block';
-            noteLabel.style.display = 'none';
             noteInputEl.value = '';
             noteInputEl.placeholder = 'e.g. early meeting';
             const updateCount = () => {
@@ -1929,7 +1957,20 @@ function openSlotChoiceModal(day, slot, partnerName) {
             };
             updateCount();
             noteInputEl.oninput = updateCount;
-            setTimeout(() => noteInputEl.focus(), 50);
+
+            if (!backLink) {
+                backLink = document.createElement('button');
+                backLink.type = 'button';
+                backLink.className = 'modal-back-link';
+                backLink.textContent = '← Back';
+                backLink.addEventListener('click', renderChoice);
+                noteSection.insertBefore(backLink, noteSection.firstChild);
+            }
+
+            // Animate open on next frame so the transition fires
+            requestAnimationFrame(() => noteSection.classList.remove('note-collapsed'));
+            setTimeout(() => noteInputEl.focus(), 280);
+
             document.getElementById('askCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
             document.getElementById('askSend').addEventListener('click', () => cleanup({ kind: 'ask', note: noteInputEl.value }));
         };
@@ -1938,9 +1979,11 @@ function openSlotChoiceModal(day, slot, partnerName) {
         const cleanup = (val) => {
             overlay.classList.remove('active');
             actions.innerHTML = savedHTML; // restore default Cancel/Confirm for openModal
+            noteSection.classList.remove('note-collapsed');
             noteSection.style.display = 'none';
             noteLabel.style.display = '';
             noteInputEl.oninput = null;
+            if (backLink) { backLink.remove(); backLink = null; }
             noteOrigParent.insertBefore(noteSection, noteOrigNext);
             overlay.removeEventListener('click', onBackdrop);
             document.removeEventListener('keydown', onKey);
