@@ -443,7 +443,7 @@
 
         .grid-head {
             display: grid;
-            grid-template-columns: 72px 1fr 1fr;
+            grid-template-columns: 72px 32px 1fr 1fr;
             background: var(--soft);
             border-bottom: 1px solid var(--border);
         }
@@ -456,11 +456,11 @@
             letter-spacing: 0.05em;
             color: var(--muted);
         }
-        .grid-head-cell:not(:first-child) { border-left: 1px solid var(--border); }
+        .grid-head-cell.slot-head { border-left: 1px solid var(--border); }
 
         .grid-row {
             display: grid;
-            grid-template-columns: 72px 1fr 1fr;
+            grid-template-columns: 72px 32px 1fr 1fr;
             border-bottom: 1px solid var(--border-soft);
         }
         .grid-row:last-child { border-bottom: none; }
@@ -487,6 +487,59 @@
         .day-cell.is-today .day-name { color: var(--accent); }
         .day-cell.is-today .day-date { color: var(--accent); }
         .day-cell.is-past { opacity: 0.55; }
+
+        .note-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FCFDFD;
+        }
+        .note-cell.is-past { opacity: 0.55; }
+        .note-btn {
+            background: none;
+            border: none;
+            padding: 6px;
+            cursor: pointer;
+            color: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .note-btn:hover {
+            background: var(--border-soft);
+            color: var(--muted);
+        }
+        .note-btn.has-note { color: var(--accent); }
+        .note-btn.has-note:hover { color: var(--accent-hover); }
+        .note-btn svg { display: block; }
+
+        .note-editor { margin-bottom: 16px; }
+        .note-editor-input {
+            width: 100%;
+            min-height: 84px;
+            padding: 10px 12px;
+            font: inherit;
+            font-size: 14px;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            resize: vertical;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .note-editor-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .note-editor-count {
+            font-size: 11px;
+            color: var(--muted-light);
+            text-align: right;
+            margin-top: 4px;
+        }
+        .note-editor-count.warn { color: var(--accent); }
 
         .slot {
             padding: 12px 10px;
@@ -812,8 +865,8 @@
         @media (min-width: 768px) {
             .container { padding: 32px 24px; }
             .onboarding-title { font-size: 32px; }
-            .grid-row { grid-template-columns: 96px 1fr 1fr; }
-            .grid-head { grid-template-columns: 96px 1fr 1fr; }
+            .grid-row { grid-template-columns: 96px 32px 1fr 1fr; }
+            .grid-head { grid-template-columns: 96px 32px 1fr 1fr; }
         }
     </style>
 </head>
@@ -960,8 +1013,9 @@
         <div class="grid" id="grid">
             <div class="grid-head">
                 <div class="grid-head-cell">Day</div>
-                <div class="grid-head-cell">Drop-off</div>
-                <div class="grid-head-cell">Pick-up</div>
+                <div class="grid-head-cell" aria-hidden="true"></div>
+                <div class="grid-head-cell slot-head">Drop-off</div>
+                <div class="grid-head-cell slot-head">Pick-up</div>
             </div>
             <div id="gridBody"></div>
         </div>
@@ -1072,8 +1126,10 @@ let state = {
     inviteExpires: null,
     weekStart: null,     // Date (Monday 00:00 local)
     asks: {},            // { 'mon_dropoff': { asker_id, note, created_at, updated_at }, ... }
+    notes: {},           // { mon: { text, updated_at } } — one per day, per week
     pollTimer: null,
     lastAsksHash: '',
+    lastNotesHash: '',
     lastUpdatedAt: 0,    // most-recent updated_at across all asks this week
     lastMutationAt: 0    // timestamp of last local write/delete — guards against stale poll overwrites
 };
@@ -1284,7 +1340,7 @@ async function leaveHousehold() {
     localStorage.removeItem(LS_KEYS.parentId);
     localStorage.removeItem(LS_KEYS.name);
     stopPolling();
-    state = { householdId:null, parentId:null, parents:{}, inviteToken:null, inviteExpires:null, weekStart:null, asks:{}, pollTimer:null, lastAsksHash:'', lastUpdatedAt:0 };
+    state = { householdId:null, parentId:null, parents:{}, inviteToken:null, inviteExpires:null, weekStart:null, asks:{}, notes:{}, pollTimer:null, lastAsksHash:'', lastNotesHash:'', lastUpdatedAt:0, lastMutationAt:0 };
 }
 
 async function loadHousehold() {
@@ -1331,6 +1387,43 @@ async function fetchWeekAsks(silent=false) {
     recomputeLastUpdated();
     if (!silent) renderGrid({ pulse: true });
     return true;
+}
+
+async function fetchWeekNotes(silent=false) {
+    const fetchStart = Date.now();
+    const data = await dbGet(`${ROOT}/households/${state.householdId}/notes/${weekIso()}`);
+    if (state.lastMutationAt >= fetchStart) return false;
+    const notes = data || {};
+    const hash = JSON.stringify(notes);
+    if (hash === state.lastNotesHash) return false;
+    state.notes = notes;
+    state.lastNotesHash = hash;
+    if (!silent) renderGrid({ pulse: true });
+    return true;
+}
+
+async function writeDayNote(day, text) {
+    const path = `${ROOT}/households/${state.householdId}/notes/${weekIso()}/${day}`;
+    const now = Date.now();
+    const record = { text: text.trim().slice(0, 140), updated_at: now };
+    state.lastMutationAt = now;
+    state.notes[day] = record;
+    state.lastNotesHash = JSON.stringify(state.notes);
+    renderGrid({ pulse: true });
+    const ok = await dbPut(path, record);
+    state.lastMutationAt = Date.now();
+    if (!ok) toast('Could not save. Check connection.');
+}
+
+async function deleteDayNote(day) {
+    const path = `${ROOT}/households/${state.householdId}/notes/${weekIso()}/${day}`;
+    state.lastMutationAt = Date.now();
+    delete state.notes[day];
+    state.lastNotesHash = JSON.stringify(state.notes);
+    renderGrid({ pulse: true });
+    const ok = await dbDelete(path);
+    state.lastMutationAt = Date.now();
+    if (!ok) toast('Could not save. Check connection.');
 }
 
 async function writeAsk(day, slot) {
@@ -1567,10 +1660,19 @@ function renderGrid(opts={}) {
             </button>`;
         }).join('');
 
+        const note = state.notes[d];
+        const hasNote = !!(note && note.text);
+        const noteClasses = ['note-btn', hasNote ? 'has-note' : '', past ? 'is-past' : ''].filter(Boolean).join(' ');
+        const noteTitle = hasNote ? `Note: ${note.text}` : 'Add a note for the day';
+        const noteIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h10l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M15 4v4h4"/></svg>`;
+
         return `<div class="grid-row">
             <div class="${dayClasses}">
                 <div class="day-name">${DAY_LABELS[d]}</div>
                 <div class="day-date">${date.getMonth()+1}/${date.getDate()}</div>
+            </div>
+            <div class="note-cell${past ? ' is-past' : ''}">
+                <button class="${noteClasses}" data-day="${d}" title="${escapeHtml(noteTitle)}" aria-label="${escapeHtml(noteTitle)}">${noteIcon}</button>
             </div>
             ${cells}
         </div>`;
@@ -1588,6 +1690,10 @@ function renderGrid(opts={}) {
             btn.classList.add('just-updated');
             setTimeout(() => btn.classList.remove('just-updated'), 600);
         }
+    });
+
+    body.querySelectorAll('.note-btn').forEach(btn => {
+        btn.addEventListener('click', () => openDayNoteModal(btn.dataset.day));
     });
 
     renderFooter(askedOfYou, askedByYou, youreCovering, themName);
@@ -1677,7 +1783,7 @@ function startPolling() {
         if (!partner() || Math.random() < 0.34) {
             await loadHousehold();
         }
-        await fetchWeekAsks(true); // update state silently
+        await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true)]); // update state silently
         // Re-render every tick so partner-join, new asks, and "Updated X ago" all stay fresh.
         if (document.getElementById('weekScreen').classList.contains('active')) {
             renderGrid();
@@ -1904,6 +2010,104 @@ async function openViewAskModal(day, slot, partnerName, ask) {
     }
 }
 
+// Day note editor: title + textarea + Save/Cancel/Delete. Returns nothing —
+// it writes/deletes directly and shows a toast.
+async function openDayNoteModal(day) {
+    const dayIdx = DAYS.indexOf(day);
+    const date = addDays(state.weekStart, dayIdx);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dateLabel = `${DAY_LABELS[day]}, ${months[date.getMonth()]} ${date.getDate()}`;
+    const existing = state.notes[day];
+    const initialText = (existing && existing.text) || '';
+    const past = isPast(state.weekStart, dayIdx);
+
+    return new Promise(resolve => {
+        const overlay = document.getElementById('modalOverlay');
+        document.getElementById('modalTitle').textContent = `Note for ${dateLabel}`;
+        const bodyEl = document.getElementById('modalBody');
+        bodyEl.innerHTML = '';
+        bodyEl.style.display = 'none';
+        document.getElementById('modalExistingNote').style.display = 'none';
+
+        const actions = document.querySelector('#modalOverlay .modal-actions');
+        const savedHTML = actions.innerHTML;
+
+        const editor = document.createElement('div');
+        editor.className = 'note-editor';
+        editor.innerHTML = `
+            <textarea class="note-editor-input" maxlength="140" placeholder="e.g. swim gear, half-day, parent-teacher conference"></textarea>
+            <div class="note-editor-count"><span class="num">0</span>/140</div>
+        `;
+        actions.parentNode.insertBefore(editor, actions);
+        const textarea = editor.querySelector('textarea');
+        const countNum = editor.querySelector('.num');
+        const countWrap = editor.querySelector('.note-editor-count');
+        textarea.value = initialText;
+        const updateCount = () => {
+            const len = textarea.value.length;
+            countNum.textContent = len;
+            countWrap.classList.toggle('warn', len >= 128);
+        };
+        updateCount();
+        textarea.oninput = updateCount;
+
+        const hasExisting = !!existing;
+        actions.innerHTML = hasExisting
+            ? `<button class="btn danger-btn" id="noteDelete">Delete</button>
+               <button class="btn btn-secondary" id="noteCancel">Cancel</button>
+               <button class="btn btn-primary" id="noteSave">Save</button>`
+            : `<button class="btn btn-secondary" id="noteCancel">Cancel</button>
+               <button class="btn btn-primary" id="noteSave">Save</button>`;
+
+        if (past) {
+            // Past days are read-only — disable save and delete actions
+            const saveBtn = document.getElementById('noteSave');
+            saveBtn.disabled = true;
+            textarea.disabled = true;
+        }
+
+        overlay.classList.add('active');
+        setTimeout(() => { if (!past) textarea.focus(); }, 50);
+
+        const cleanup = () => {
+            overlay.classList.remove('active');
+            actions.innerHTML = savedHTML;
+            editor.remove();
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            resolve();
+        };
+
+        const onSave = async () => {
+            const text = textarea.value.trim();
+            cleanup();
+            if (text) {
+                await writeDayNote(day, text);
+                toast(`Note saved for ${DAY_LABELS[day]}`);
+            } else if (hasExisting) {
+                await deleteDayNote(day);
+                toast(`Note cleared`);
+            }
+        };
+        const onDelete = async () => {
+            cleanup();
+            await deleteDayNote(day);
+            toast(`Note cleared`);
+        };
+
+        document.getElementById('noteSave').addEventListener('click', onSave);
+        document.getElementById('noteCancel').addEventListener('click', cleanup);
+        if (hasExisting) document.getElementById('noteDelete').addEventListener('click', onDelete);
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup(); };
+        const onKey = (e) => {
+            if (e.key === 'Escape') cleanup();
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave();
+        };
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+    });
+}
+
 // ==========================================================================
 // Routing — decide which screen to show
 // ==========================================================================
@@ -1990,7 +2194,8 @@ async function enterWeekView() {
     show('weekScreen');
     state.weekStart = startOfWeek(new Date());
     state.lastAsksHash = '';
-    await fetchWeekAsks(true);
+    state.lastNotesHash = '';
+    await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true)]);
     renderGrid();
     startPolling();
 }
@@ -2061,20 +2266,22 @@ function wireInviteShare() {
 }
 
 function wireWeek() {
+    const refreshWeek = () => {
+        state.lastAsksHash = '';
+        state.lastNotesHash = '';
+        Promise.all([fetchWeekAsks(true), fetchWeekNotes(true)]).then(() => renderGrid());
+    };
     document.getElementById('prevWeekBtn').addEventListener('click', () => {
         state.weekStart = addDays(state.weekStart, -7);
-        state.lastAsksHash = '';
-        fetchWeekAsks(true).then(() => renderGrid());
+        refreshWeek();
     });
     document.getElementById('nextWeekBtn').addEventListener('click', () => {
         state.weekStart = addDays(state.weekStart, 7);
-        state.lastAsksHash = '';
-        fetchWeekAsks(true).then(() => renderGrid());
+        refreshWeek();
     });
     document.getElementById('todayBtn').addEventListener('click', () => {
         state.weekStart = startOfWeek(new Date());
-        state.lastAsksHash = '';
-        fetchWeekAsks(true).then(() => renderGrid());
+        refreshWeek();
     });
     document.getElementById('settingsBtn').addEventListener('click', async () => {
         await loadHousehold();
