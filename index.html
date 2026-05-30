@@ -2011,7 +2011,7 @@ async function openViewAskModal(day, slot, partnerName, ask) {
         title: `${partnerName} asked you to cover ${slotLabel(day, slot)}`,
         body: isConfirmed ? `You've confirmed you'll cover this.` : '',
         existingNote: ask.note ? { text: ask.note, label: `${partnerName}'s note` } : null,
-        confirmLabel: isConfirmed ? 'Un-confirm' : "Confirm I'll cover",
+        confirmLabel: isConfirmed ? 'Un-confirm' : "I'll cover",
         cancelLabel: 'Close',
         dangerous: isConfirmed
     });
