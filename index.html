@@ -1062,17 +1062,6 @@
             <button class="btn btn-secondary" id="saveNameBtn">Save name</button>
         </div>
 
-        <div class="settings-section">
-            <h3>Notifications</h3>
-            <div class="setting-row">
-                <div>
-                    <div class="setting-label">Push notifications</div>
-                    <div class="setting-desc">Get a ping when your partner asks you to cover a slot or updates an ask.</div>
-                </div>
-                <button class="toggle" id="notifToggle" aria-label="Toggle notifications"></button>
-            </div>
-        </div>
-
         <div class="settings-section" id="inviteAgainSection">
             <h3>Invite code</h3>
             <p class="setting-desc" id="settingsInviteDesc" style="margin-bottom:12px;"></p>
@@ -1126,8 +1115,7 @@ const SLOT_LABELS = { dropoff:'Drop-off', pickup:'Pick-up' };
 const LS_KEYS = {
     householdId: 'tinycare-household-id',
     parentId: 'tinycare-parent-id',
-    name: 'tinycare-name',
-    notifs: 'tinycare-notifs'
+    name: 'tinycare-name'
 };
 
 // ----- State -----
@@ -1906,11 +1894,6 @@ function renderSettings() {
             genEl.style.display = 'inline-flex';
         }
     }
-
-    // Notifications toggle
-    const tog = document.getElementById('notifToggle');
-    const enabled = localStorage.getItem(LS_KEYS.notifs) === '1';
-    tog.classList.toggle('on', enabled);
 }
 
 function parentCardHtml(p, isYou) {
@@ -2357,20 +2340,6 @@ function wireSettings() {
         state.parents[state.parentId].name = v;
         await dbPatch(`${ROOT}/households/${state.householdId}/parents/${state.parentId}`, { name: v });
         toast('Name updated');
-    });
-
-    document.getElementById('notifToggle').addEventListener('click', async () => {
-        const enabled = localStorage.getItem(LS_KEYS.notifs) === '1';
-        if (!enabled) {
-            if ('Notification' in window) {
-                const perm = await Notification.requestPermission();
-                if (perm !== 'granted') { toast('Notifications blocked in your browser'); return; }
-            }
-            localStorage.setItem(LS_KEYS.notifs, '1');
-        } else {
-            localStorage.setItem(LS_KEYS.notifs, '0');
-        }
-        renderSettings();
     });
 
     document.getElementById('settingsCopyBtn').addEventListener('click', async () => {
