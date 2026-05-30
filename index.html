@@ -2019,7 +2019,6 @@ async function openDayNoteModal(day) {
     const dateLabel = `${DAY_LABELS[day]}, ${months[date.getMonth()]} ${date.getDate()}`;
     const existing = state.notes[day];
     const initialText = (existing && existing.text) || '';
-    const past = isPast(state.weekStart, dayIdx);
 
     return new Promise(resolve => {
         const overlay = document.getElementById('modalOverlay');
@@ -2059,15 +2058,8 @@ async function openDayNoteModal(day) {
             : `<button class="btn btn-secondary" id="noteCancel">Cancel</button>
                <button class="btn btn-primary" id="noteSave">Save</button>`;
 
-        if (past) {
-            // Past days are read-only — disable save and delete actions
-            const saveBtn = document.getElementById('noteSave');
-            saveBtn.disabled = true;
-            textarea.disabled = true;
-        }
-
         overlay.classList.add('active');
-        setTimeout(() => { if (!past) textarea.focus(); }, 50);
+        setTimeout(() => textarea.focus(), 50);
 
         const cleanup = () => {
             overlay.classList.remove('active');
