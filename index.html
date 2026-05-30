@@ -1656,11 +1656,13 @@ async function onSlotClick(e) {
 
     if (st.kind === 'unmarked') {
         const choice = await openSlotChoiceModal(day, slot, them.name);
-        if (choice === 'claim') {
+        if (!choice) return;
+        if (choice.kind === 'claim') {
             await claimSlot(day, slot);
             toast(`You're covering ${slotLabel(day, slot)}`);
-        } else if (choice === 'ask') {
-            openAskModal(day, slot, them.name);
+        } else if (choice.kind === 'ask') {
+            await writeAsk(day, slot, choice.note);
+            toast(`Asked ${them.name} to cover ${slotLabel(day, slot)}`);
         }
     } else if (st.kind === 'you-claimed') {
         await unclaimSlot(day, slot);
@@ -1869,8 +1871,9 @@ async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=fal
     return r.confirmed;
 }
 
-// Empty-slot chooser: returns 'claim' | 'ask' | null. Reuses the shared modal
-// shell, swapping in two action buttons and restoring them on close.
+// Empty-slot chooser: returns { kind: 'claim' } | { kind: 'ask', note } | null.
+// Reuses the shared modal shell, swapping in two action buttons + an optional
+// note input shown below them (the note only applies to "Ask").
 function openSlotChoiceModal(day, slot, partnerName) {
     return new Promise(resolve => {
         const overlay = document.getElementById('modalOverlay');
@@ -1879,7 +1882,13 @@ function openSlotChoiceModal(day, slot, partnerName) {
         bodyEl.innerHTML = `Who's covering this one?`;
         bodyEl.style.display = 'block';
         document.getElementById('modalExistingNote').style.display = 'none';
-        document.getElementById('modalNoteSection').style.display = 'none';
+
+        const noteSection = document.getElementById('modalNoteSection');
+        const noteInputEl = document.getElementById('modalNoteInput');
+        const noteCountEl = document.getElementById('modalNoteCount');
+        const noteLabel = noteSection.querySelector('label');
+        const noteOrigNext = noteSection.nextSibling;
+        const noteOrigParent = noteSection.parentNode;
 
         const actions = document.querySelector('#modalOverlay .modal-actions');
         const savedHTML = actions.innerHTML;
@@ -1887,33 +1896,44 @@ function openSlotChoiceModal(day, slot, partnerName) {
             `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
             `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
 
+        // Move note section below the buttons for this modal only
+        actions.parentNode.insertBefore(noteSection, actions.nextSibling);
+        noteSection.style.display = 'block';
+        noteLabel.textContent = `Note for ${partnerName} (optional)`;
+        noteInputEl.value = '';
+        noteInputEl.placeholder = 'e.g. early meeting';
+        const updateCount = () => {
+            const len = noteInputEl.value.length;
+            noteCountEl.textContent = len;
+            noteCountEl.parentElement.classList.toggle('warn', len >= 55);
+        };
+        updateCount();
+        noteInputEl.oninput = updateCount;
+
         overlay.classList.add('active');
         const cleanup = (val) => {
             overlay.classList.remove('active');
             actions.innerHTML = savedHTML; // restore default Cancel/Confirm for openModal
+            noteSection.style.display = 'none';
+            noteLabel.textContent = 'Note';
+            noteInputEl.oninput = null;
+            noteOrigParent.insertBefore(noteSection, noteOrigNext);
             overlay.removeEventListener('click', onBackdrop);
             document.removeEventListener('keydown', onKey);
             resolve(val);
         };
-        document.getElementById('choiceCover').addEventListener('click', () => cleanup('claim'));
-        document.getElementById('choiceAsk').addEventListener('click', () => cleanup('ask'));
+        document.getElementById('choiceCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
+        document.getElementById('choiceAsk').addEventListener('click', () => cleanup({ kind: 'ask', note: noteInputEl.value }));
         const onBackdrop = (e) => { if (e.target === overlay) cleanup(null); };
-        const onKey = (e) => { if (e.key === 'Escape') cleanup(null); };
+        const onKey = (e) => {
+            if (e.key === 'Escape') cleanup(null);
+            if (e.key === 'Enter' && document.activeElement === noteInputEl) {
+                cleanup({ kind: 'ask', note: noteInputEl.value });
+            }
+        };
         overlay.addEventListener('click', onBackdrop);
         document.addEventListener('keydown', onKey);
     });
-}
-
-async function openAskModal(day, slot, partnerName) {
-    const r = await openModal({
-        title: `Ask ${partnerName} to cover ${slotLabel(day, slot)}?`,
-        noteInput: { initial: '', placeholder: 'e.g. early meeting (optional)' },
-        confirmLabel: `Ask ${partnerName}`
-    });
-    if (r.confirmed) {
-        await writeAsk(day, slot, r.note);
-        toast(`Asked ${partnerName} to cover ${slotLabel(day, slot)}`);
-    }
 }
 
 async function openUnaskModal(day, slot, partnerName, ask) {
