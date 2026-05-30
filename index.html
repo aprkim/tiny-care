@@ -1879,8 +1879,9 @@ async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=fal
 }
 
 // Empty-slot chooser: returns { kind: 'claim' } | { kind: 'ask', note } | null.
-// Reuses the shared modal shell, swapping in two action buttons + an optional
-// note input shown below them (the note only applies to "Ask").
+// Two states. State 1: [I'll cover] [Ask X] only — no clutter. State 2 (after
+// tapping Ask): same row but the primary becomes [Send], and a note input
+// slides in below the buttons. "I'll cover" still claims from either state.
 function openSlotChoiceModal(day, slot, partnerName) {
     return new Promise(resolve => {
         const overlay = document.getElementById('modalOverlay');
@@ -1896,26 +1897,42 @@ function openSlotChoiceModal(day, slot, partnerName) {
         const noteLabel = noteSection.querySelector('label');
         const noteOrigNext = noteSection.nextSibling;
         const noteOrigParent = noteSection.parentNode;
+        noteSection.style.display = 'none';
 
         const actions = document.querySelector('#modalOverlay .modal-actions');
         const savedHTML = actions.innerHTML;
-        actions.innerHTML =
-            `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
-            `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
 
-        // Move note section below the buttons for this modal only
-        actions.parentNode.insertBefore(noteSection, actions.nextSibling);
-        noteSection.style.display = 'block';
-        noteLabel.textContent = `Note for ${partnerName} (optional)`;
-        noteInputEl.value = '';
-        noteInputEl.placeholder = 'e.g. early meeting';
-        const updateCount = () => {
-            const len = noteInputEl.value.length;
-            noteCountEl.textContent = len;
-            noteCountEl.parentElement.classList.toggle('warn', len >= 92);
+        const renderChoice = () => {
+            noteSection.style.display = 'none';
+            noteInputEl.oninput = null;
+            actions.innerHTML =
+                `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
+                `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
+            document.getElementById('choiceCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
+            document.getElementById('choiceAsk').addEventListener('click', renderAsk);
         };
-        updateCount();
-        noteInputEl.oninput = updateCount;
+
+        const renderAsk = () => {
+            actions.innerHTML =
+                `<button class="btn btn-secondary" id="askCover">I'll cover</button>` +
+                `<button class="btn btn-primary" id="askSend">Send</button>`;
+            // Slide note section in below the buttons
+            actions.parentNode.insertBefore(noteSection, actions.nextSibling);
+            noteSection.style.display = 'block';
+            noteLabel.textContent = `Note for ${partnerName} (optional)`;
+            noteInputEl.value = '';
+            noteInputEl.placeholder = 'e.g. early meeting';
+            const updateCount = () => {
+                const len = noteInputEl.value.length;
+                noteCountEl.textContent = len;
+                noteCountEl.parentElement.classList.toggle('warn', len >= 92);
+            };
+            updateCount();
+            noteInputEl.oninput = updateCount;
+            setTimeout(() => noteInputEl.focus(), 50);
+            document.getElementById('askCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
+            document.getElementById('askSend').addEventListener('click', () => cleanup({ kind: 'ask', note: noteInputEl.value }));
+        };
 
         overlay.classList.add('active');
         const cleanup = (val) => {
@@ -1929,8 +1946,7 @@ function openSlotChoiceModal(day, slot, partnerName) {
             document.removeEventListener('keydown', onKey);
             resolve(val);
         };
-        document.getElementById('choiceCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
-        document.getElementById('choiceAsk').addEventListener('click', () => cleanup({ kind: 'ask', note: noteInputEl.value }));
+        renderChoice();
         const onBackdrop = (e) => { if (e.target === overlay) cleanup(null); };
         const onKey = (e) => {
             if (e.key === 'Escape') cleanup(null);
