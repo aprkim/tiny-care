@@ -914,7 +914,7 @@
         <div class="setup-form" style="margin-top: 12px;">
             <div class="form-group">
                 <label class="form-label" for="entryInvite">Have a code?</label>
-                <input class="form-input" id="entryInvite" type="text" placeholder="Enter code" autocomplete="off" />
+                <input class="form-input" id="entryInvite" type="text" placeholder="Enter code" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" style="text-transform: uppercase;" />
             </div>
             <div class="form-group">
                 <button class="btn btn-secondary" id="btnJoinFromLink" disabled>Join</button>
@@ -1305,6 +1305,10 @@ async function regenerateInvite() {
 }
 
 async function lookupInvite(token) {
+    // Invite codes are stored uppercase; normalize so a hand-typed code works
+    // whether the user typed lowercase, mixed case, or with stray whitespace.
+    token = String(token || '').replace(/\s+/g, '').toUpperCase();
+    if (!token) return null;
     const hid = await dbGet(`${ROOT}/invites/${token}`);
     if (!hid) return null;
     const hh = await dbGet(`${ROOT}/households/${hid}`);
