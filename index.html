@@ -1047,8 +1047,8 @@
         </div>
         <div class="modal-note-section" id="modalNoteSection" style="display:none;">
             <label class="form-label" for="modalNoteInput">Note</label>
-            <input class="form-input" id="modalNoteInput" type="text" maxlength="60" placeholder="e.g. early meeting" />
-            <div class="note-count"><span id="modalNoteCount">0</span>/60</div>
+            <input class="form-input" id="modalNoteInput" type="text" maxlength="100" placeholder="e.g. early meeting" />
+            <div class="note-count"><span id="modalNoteCount">0</span>/100</div>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="modalCancel">Cancel</button>
@@ -1494,7 +1494,14 @@ function slotState(day, slot) {
 }
 
 function slotLabel(day, slot) {
-    return `${DAY_LABELS[day]} ${SLOT_LABELS[slot].toLowerCase()}`;
+    const slotPart = SLOT_LABELS[slot].toLowerCase();
+    const dayIdx = DAYS.indexOf(day);
+    if (state.weekStart && dayIdx >= 0) {
+        const d = addDays(state.weekStart, dayIdx);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${DAY_LABELS[day]}, ${months[d.getMonth()]} ${d.getDate()} ${slotPart}`;
+    }
+    return `${DAY_LABELS[day]} ${slotPart}`;
 }
 
 function renderGrid(opts={}) {
@@ -1822,7 +1829,7 @@ function openModal({
             const updateCount = () => {
                 const len = noteInputEl.value.length;
                 noteCountEl.textContent = len;
-                noteCountEl.parentElement.classList.toggle('warn', len >= 55);
+                noteCountEl.parentElement.classList.toggle('warn', len >= 92);
             };
             updateCount();
             noteInputEl.oninput = updateCount;
@@ -1879,8 +1886,8 @@ function openSlotChoiceModal(day, slot, partnerName) {
         const overlay = document.getElementById('modalOverlay');
         document.getElementById('modalTitle').textContent = slotLabel(day, slot);
         const bodyEl = document.getElementById('modalBody');
-        bodyEl.innerHTML = `Who's covering this one?`;
-        bodyEl.style.display = 'block';
+        bodyEl.innerHTML = '';
+        bodyEl.style.display = 'none';
         document.getElementById('modalExistingNote').style.display = 'none';
 
         const noteSection = document.getElementById('modalNoteSection');
@@ -1905,7 +1912,7 @@ function openSlotChoiceModal(day, slot, partnerName) {
         const updateCount = () => {
             const len = noteInputEl.value.length;
             noteCountEl.textContent = len;
-            noteCountEl.parentElement.classList.toggle('warn', len >= 55);
+            noteCountEl.parentElement.classList.toggle('warn', len >= 92);
         };
         updateCount();
         noteInputEl.oninput = updateCount;
