@@ -2204,7 +2204,18 @@ async function showJoinFlow(token) {
     document.getElementById('joinSubtitle').textContent = '';
     document.getElementById('joinGreeting').innerHTML = `<strong>${escapeHtml(inviterName)}</strong> invited you to share drop-offs &amp; pickups on Tiny Care.`;
     document.getElementById('joinForm').style.display = 'block';
-    document.getElementById('joinName').focus();
+
+    // Carry forward the name the user already typed on the entry screen so
+    // they don't have to enter it twice.
+    const prefilledName = document.getElementById('entryName').value.trim()
+        || localStorage.getItem(LS_KEYS.name) || '';
+    const joinNameEl = document.getElementById('joinName');
+    joinNameEl.value = prefilledName;
+    if (prefilledName) {
+        document.getElementById('btnJoin').disabled = false;
+    } else {
+        joinNameEl.focus();
+    }
 
     // wire button
     const joinName = document.getElementById('joinName');
