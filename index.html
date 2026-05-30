@@ -920,6 +920,16 @@
                 <button class="btn btn-secondary" id="btnJoinFromLink" disabled>Join</button>
             </div>
         </div>
+
+        <div class="setup-form" style="margin-top: 12px;">
+            <div class="form-group">
+                <label class="form-label" for="entryRestore">Returning here? Paste your restore code</label>
+                <input class="form-input" id="entryRestore" type="text" placeholder="e.g. ccp2xf775ecz.p86mxhrqkg" autocomplete="off" autocorrect="off" spellcheck="false" />
+            </div>
+            <div class="form-group">
+                <button class="btn btn-secondary" id="btnRestore" disabled>Restore</button>
+            </div>
+        </div>
     </div>
 
     <div class="version" id="versionLabel">v2026.05.24-01</div>
@@ -1060,6 +1070,15 @@
                 <input class="form-input" id="settingsName" type="text" maxlength="24" />
             </div>
             <button class="btn btn-secondary" id="saveNameBtn">Save name</button>
+        </div>
+
+        <div class="settings-section">
+            <h3>Restore code</h3>
+            <p class="setting-desc" style="margin-bottom:12px;">Save this somewhere safe (like a password manager). Use it on the start screen to sign back in if you switch browsers or lose your data. Anyone with this code can access your account, so don't share it.</p>
+            <div class="invite-link-row">
+                <input class="form-input invite-code" id="settingsRestoreCode" type="text" readonly />
+                <button class="copy-btn" id="copyRestoreBtn">Copy</button>
+            </div>
         </div>
 
         <div class="settings-section" id="inviteAgainSection">
@@ -1273,6 +1292,31 @@ async function createHousehold(name) {
     state.parents = { [pid]: { name: name.trim(), color: 'teal', joined_at: now } };
 
     return { hid, pid, token };
+}
+
+function restoreCode() {
+    if (!state.householdId || !state.parentId) return '';
+    return `${state.householdId}.${state.parentId}`;
+}
+
+async function restoreFromCode(rawCode) {
+    const m = String(rawCode || '').trim().toLowerCase().match(/^([a-z0-9]+)\.([a-z0-9]+)$/);
+    if (!m) return { ok: false, error: 'That doesn\'t look like a restore code.' };
+    const hid = m[1];
+    const pid = m[2];
+    const hh = await dbGet(`${ROOT}/households/${hid}`);
+    if (!hh) return { ok: false, error: 'No household found for that code.' };
+    const parent = (hh.parents || {})[pid];
+    if (!parent) return { ok: false, error: 'This parent is no longer in the household.' };
+    localStorage.setItem(LS_KEYS.householdId, hid);
+    localStorage.setItem(LS_KEYS.parentId, pid);
+    localStorage.setItem(LS_KEYS.name, parent.name);
+    state.householdId = hid;
+    state.parentId = pid;
+    state.parents = hh.parents || {};
+    state.inviteToken = hh.invite_token || null;
+    state.inviteExpires = hh.invite_expires || null;
+    return { ok: true, name: parent.name };
 }
 
 async function regenerateInvite() {
@@ -1851,6 +1895,7 @@ function renderSettings() {
     const me = state.parents[state.parentId];
     const them = partner();
     document.getElementById('settingsName').value = me ? me.name : '';
+    document.getElementById('settingsRestoreCode').value = restoreCode();
 
     const parentsHtml = [];
     if (me) {
@@ -2243,15 +2288,34 @@ async function enterWeekView() {
 function wireEntry() {
     const nameEl = document.getElementById('entryName');
     const inviteEl = document.getElementById('entryInvite');
+    const restoreEl = document.getElementById('entryRestore');
     const btnCreate = document.getElementById('btnCreate');
     const btnJoinLink = document.getElementById('btnJoinFromLink');
+    const btnRestore = document.getElementById('btnRestore');
 
     function update() {
         btnCreate.disabled = nameEl.value.trim().length === 0;
         btnJoinLink.disabled = inviteEl.value.trim().length === 0;
+        btnRestore.disabled = restoreEl.value.trim().length === 0;
     }
     nameEl.addEventListener('input', update);
     inviteEl.addEventListener('input', update);
+    restoreEl.addEventListener('input', update);
+
+    btnRestore.addEventListener('click', async () => {
+        btnRestore.disabled = true;
+        btnRestore.textContent = 'Restoring…';
+        const r = await restoreFromCode(restoreEl.value);
+        if (!r.ok) {
+            btnRestore.textContent = 'Restore';
+            btnRestore.disabled = false;
+            toast(r.error || 'Could not restore');
+            return;
+        }
+        await loadHousehold();
+        await enterWeekView();
+        toast(`Welcome back, ${r.name}`);
+    });
 
     btnCreate.addEventListener('click', async () => {
         const name = nameEl.value.trim();
@@ -2347,6 +2411,18 @@ function wireSettings() {
         try {
             await navigator.clipboard.writeText(url);
             const b = document.getElementById('settingsCopyBtn');
+            b.textContent = 'Copied';
+            b.classList.add('copied');
+            setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1500);
+        } catch (e) { toast('Could not copy'); }
+    });
+
+    document.getElementById('copyRestoreBtn').addEventListener('click', async () => {
+        const code = document.getElementById('settingsRestoreCode').value;
+        if (!code) return;
+        try {
+            await navigator.clipboard.writeText(code);
+            const b = document.getElementById('copyRestoreBtn');
             b.textContent = 'Copied';
             b.classList.add('copied');
             setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('copied'); }, 1500);
