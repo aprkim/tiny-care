@@ -1919,7 +1919,7 @@ function openSlotChoiceModal(day, slot, partnerName) {
             // Slide note section in below the buttons
             actions.parentNode.insertBefore(noteSection, actions.nextSibling);
             noteSection.style.display = 'block';
-            noteLabel.textContent = `Note for ${partnerName} (optional)`;
+            noteLabel.style.display = 'none';
             noteInputEl.value = '';
             noteInputEl.placeholder = 'e.g. early meeting';
             const updateCount = () => {
@@ -1939,7 +1939,7 @@ function openSlotChoiceModal(day, slot, partnerName) {
             overlay.classList.remove('active');
             actions.innerHTML = savedHTML; // restore default Cancel/Confirm for openModal
             noteSection.style.display = 'none';
-            noteLabel.textContent = 'Note';
+            noteLabel.style.display = '';
             noteInputEl.oninput = null;
             noteOrigParent.insertBefore(noteSection, noteOrigNext);
             overlay.removeEventListener('click', onBackdrop);
