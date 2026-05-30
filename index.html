@@ -742,41 +742,6 @@
         .modal-actions .btn { flex: 1; }
         .modal-actions .btn.single { flex: 0 0 auto; padding-left: 20px; padding-right: 20px; margin-left: auto; }
 
-        .modal-note-section {
-            margin-bottom: 16px;
-            max-height: 240px;
-            overflow: hidden;
-            transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.28s ease, margin-bottom 0.28s ease;
-        }
-        .modal-note-section.note-collapsed {
-            max-height: 0;
-            opacity: 0;
-            margin-top: 0;
-            margin-bottom: 0;
-            pointer-events: none;
-        }
-        .modal-note-section .form-label { font-size: 12px; }
-        .modal-note-section .form-input { padding: 10px 12px; font-size: 14px; }
-        .note-count {
-            font-size: 11px;
-            color: var(--muted-light);
-            text-align: right;
-            margin-top: 4px;
-        }
-        .note-count.warn { color: var(--accent); }
-        .modal-back-link {
-            background: none;
-            border: none;
-            padding: 0 0 8px;
-            color: var(--info);
-            font: inherit;
-            font-size: 13px;
-            cursor: pointer;
-            text-align: left;
-            display: block;
-        }
-        .modal-back-link:hover { color: var(--info-strong); }
-
         .existing-note {
             background: var(--teal-bg);
             border: 1px solid var(--teal-border);
@@ -1068,11 +1033,6 @@
         <div class="existing-note" id="modalExistingNote" style="display:none;">
             <div class="note-label" id="modalExistingNoteLabel">Note</div>
             <div id="modalExistingNoteText"></div>
-        </div>
-        <div class="modal-note-section" id="modalNoteSection" style="display:none;">
-            <label class="form-label" for="modalNoteInput">Note</label>
-            <input class="form-input" id="modalNoteInput" type="text" maxlength="100" placeholder="e.g. early meeting" />
-            <div class="note-count"><span id="modalNoteCount">0</span>/100</div>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="modalCancel">Cancel</button>
@@ -1373,14 +1333,14 @@ async function fetchWeekAsks(silent=false) {
     return true;
 }
 
-async function writeAsk(day, slot, note) {
+async function writeAsk(day, slot) {
     const key = `${day}_${slot}`;
     const path = `${ROOT}/households/${state.householdId}/asks/${weekIso()}/${key}`;
     const now = Date.now();
     const existing = state.asks[key];
     const ask = {
         asker_id: state.parentId,
-        note: (note || '').trim().slice(0, 60) || null,
+        note: null,
         created_at: existing ? (existing.created_at || now) : now,
         updated_at: now
     };
@@ -1687,12 +1647,11 @@ async function onSlotClick(e) {
 
     if (st.kind === 'unmarked') {
         const choice = await openSlotChoiceModal(day, slot, them.name);
-        if (!choice) return;
-        if (choice.kind === 'claim') {
+        if (choice === 'claim') {
             await claimSlot(day, slot);
             toast(`You're covering ${slotLabel(day, slot)}`);
-        } else if (choice.kind === 'ask') {
-            await writeAsk(day, slot, choice.note);
+        } else if (choice === 'ask') {
+            await writeAsk(day, slot);
             toast(`Asked ${them.name} to cover ${slotLabel(day, slot)}`);
         }
     } else if (st.kind === 'you-claimed') {
@@ -1818,7 +1777,6 @@ function openModal({
     title,
     body,
     existingNote = null,         // { text, muted? } shown above the actions
-    noteInput = null,            // { initial, placeholder, optional } — null = no input
     confirmLabel = 'Confirm',
     cancelLabel = 'Cancel',
     dangerous = false,
@@ -1843,25 +1801,6 @@ function openModal({
             existingEl.style.display = 'none';
         }
 
-        const noteSection = document.getElementById('modalNoteSection');
-        const noteInputEl = document.getElementById('modalNoteInput');
-        const noteCountEl = document.getElementById('modalNoteCount');
-        if (noteInput) {
-            noteSection.style.display = 'block';
-            noteInputEl.value = noteInput.initial || '';
-            noteInputEl.placeholder = noteInput.placeholder || 'e.g. early meeting';
-            const updateCount = () => {
-                const len = noteInputEl.value.length;
-                noteCountEl.textContent = len;
-                noteCountEl.parentElement.classList.toggle('warn', len >= 92);
-            };
-            updateCount();
-            noteInputEl.oninput = updateCount;
-        } else {
-            noteSection.style.display = 'none';
-            noteInputEl.oninput = null;
-        }
-
         const ok = document.getElementById('modalConfirm');
         const cancel = document.getElementById('modalCancel');
         ok.textContent = confirmLabel;
@@ -1872,7 +1811,6 @@ function openModal({
         ok.classList.toggle('single', hideCancel);
 
         overlay.classList.add('active');
-        if (noteInput) setTimeout(() => noteInputEl.focus(), 50);
 
         const cleanup = (result) => {
             overlay.classList.remove('active');
@@ -1882,12 +1820,12 @@ function openModal({
             document.removeEventListener('keydown', onKey);
             resolve(result);
         };
-        const onOk = () => cleanup({ confirmed: true, note: noteInput ? noteInputEl.value : null });
-        const onCancel = () => cleanup({ confirmed: false, note: null });
-        const onBackdrop = (e) => { if (e.target === overlay) cleanup({ confirmed: false, note: null }); };
+        const onOk = () => cleanup({ confirmed: true });
+        const onCancel = () => cleanup({ confirmed: false });
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup({ confirmed: false }); };
         const onKey = (e) => {
-            if (e.key === 'Escape') cleanup({ confirmed: false, note: null });
-            if (e.key === 'Enter' && (!noteInput || document.activeElement === noteInputEl)) onOk();
+            if (e.key === 'Escape') cleanup({ confirmed: false });
+            if (e.key === 'Enter') onOk();
         };
         ok.addEventListener('click', onOk);
         cancel.addEventListener('click', onCancel);
@@ -1902,10 +1840,8 @@ async function confirmModal({ title, body, confirmLabel='Confirm', dangerous=fal
     return r.confirmed;
 }
 
-// Empty-slot chooser: returns { kind: 'claim' } | { kind: 'ask', note } | null.
-// Two states. State 1: [I'll cover] [Ask X] only — no clutter. Tapping Ask
-// animates a note input + Back link in below, swaps the primary to [Send].
-// "I'll cover" still claims from either state.
+// Empty-slot chooser: returns 'claim' | 'ask' | null. Reuses the shared modal
+// shell, swapping in two action buttons and restoring them on close.
 function openSlotChoiceModal(day, slot, partnerName) {
     return new Promise(resolve => {
         const overlay = document.getElementById('modalOverlay');
@@ -1915,88 +1851,24 @@ function openSlotChoiceModal(day, slot, partnerName) {
         bodyEl.style.display = 'none';
         document.getElementById('modalExistingNote').style.display = 'none';
 
-        const noteSection = document.getElementById('modalNoteSection');
-        const noteInputEl = document.getElementById('modalNoteInput');
-        const noteCountEl = document.getElementById('modalNoteCount');
-        const noteLabel = noteSection.querySelector('label');
-        const noteOrigNext = noteSection.nextSibling;
-        const noteOrigParent = noteSection.parentNode;
-
         const actions = document.querySelector('#modalOverlay .modal-actions');
         const savedHTML = actions.innerHTML;
-
-        // Park note section below the buttons, collapsed, for the whole modal.
-        actions.parentNode.insertBefore(noteSection, actions.nextSibling);
-        noteSection.style.display = 'block';
-        noteSection.classList.add('note-collapsed');
-        noteLabel.style.display = 'none';
-
-        let backLink = null;
-
-        const renderChoice = () => {
-            noteSection.classList.add('note-collapsed');
-            noteInputEl.oninput = null;
-            if (backLink) { backLink.remove(); backLink = null; }
-            actions.innerHTML =
-                `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
-                `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
-            document.getElementById('choiceCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
-            document.getElementById('choiceAsk').addEventListener('click', renderAsk);
-        };
-
-        const renderAsk = () => {
-            actions.innerHTML =
-                `<button class="btn btn-secondary" id="askCover">I'll cover</button>` +
-                `<button class="btn btn-primary" id="askSend">Send</button>`;
-            noteInputEl.value = '';
-            noteInputEl.placeholder = 'e.g. early meeting';
-            const updateCount = () => {
-                const len = noteInputEl.value.length;
-                noteCountEl.textContent = len;
-                noteCountEl.parentElement.classList.toggle('warn', len >= 92);
-            };
-            updateCount();
-            noteInputEl.oninput = updateCount;
-
-            if (!backLink) {
-                backLink = document.createElement('button');
-                backLink.type = 'button';
-                backLink.className = 'modal-back-link';
-                backLink.textContent = '← Back';
-                backLink.addEventListener('click', renderChoice);
-                noteSection.insertBefore(backLink, noteSection.firstChild);
-            }
-
-            // Animate open on next frame so the transition fires
-            requestAnimationFrame(() => noteSection.classList.remove('note-collapsed'));
-            setTimeout(() => noteInputEl.focus(), 280);
-
-            document.getElementById('askCover').addEventListener('click', () => cleanup({ kind: 'claim' }));
-            document.getElementById('askSend').addEventListener('click', () => cleanup({ kind: 'ask', note: noteInputEl.value }));
-        };
+        actions.innerHTML =
+            `<button class="btn btn-secondary" id="choiceCover">I'll cover</button>` +
+            `<button class="btn btn-primary" id="choiceAsk">Ask ${escapeHtml(partnerName)}</button>`;
 
         overlay.classList.add('active');
         const cleanup = (val) => {
             overlay.classList.remove('active');
-            actions.innerHTML = savedHTML; // restore default Cancel/Confirm for openModal
-            noteSection.classList.remove('note-collapsed');
-            noteSection.style.display = 'none';
-            noteLabel.style.display = '';
-            noteInputEl.oninput = null;
-            if (backLink) { backLink.remove(); backLink = null; }
-            noteOrigParent.insertBefore(noteSection, noteOrigNext);
+            actions.innerHTML = savedHTML;
             overlay.removeEventListener('click', onBackdrop);
             document.removeEventListener('keydown', onKey);
             resolve(val);
         };
-        renderChoice();
+        document.getElementById('choiceCover').addEventListener('click', () => cleanup('claim'));
+        document.getElementById('choiceAsk').addEventListener('click', () => cleanup('ask'));
         const onBackdrop = (e) => { if (e.target === overlay) cleanup(null); };
-        const onKey = (e) => {
-            if (e.key === 'Escape') cleanup(null);
-            if (e.key === 'Enter' && document.activeElement === noteInputEl) {
-                cleanup({ kind: 'ask', note: noteInputEl.value });
-            }
-        };
+        const onKey = (e) => { if (e.key === 'Escape') cleanup(null); };
         overlay.addEventListener('click', onBackdrop);
         document.addEventListener('keydown', onKey);
     });
