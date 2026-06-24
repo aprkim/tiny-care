@@ -1322,6 +1322,9 @@ async function restoreFromCode(rawCode) {
 async function regenerateInvite() {
     const hid = state.householdId;
     if (!hid) return null;
+    // Belt-and-suspenders: never mint a working code while the household is
+    // full. The settings UI already hides the button in this case.
+    if (Object.keys(state.parents || {}).length >= 2) return null;
     const token = inviteCode(8);
     const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
     // Clear any stale token so it can't be used twice
@@ -1351,8 +1354,15 @@ async function lookupInvite(token) {
 }
 
 async function joinHousehold(hid, household, name) {
-    // Assign next available color
+    // Refuse if the household is already full — otherwise a returning user who
+    // re-uses an invite code becomes a phantom third parent and leaves their
+    // old identity orphaned, which makes views diverge across browsers.
     const existing = household.parents || {};
+    if (Object.keys(existing).length >= 2) {
+        toast("This household is full. If you're returning, use your Restore code instead.");
+        return null;
+    }
+    // Assign next available color
     const colorsUsed = new Set(Object.values(existing).map(p => p.color));
     const color = colorsUsed.has('teal') ? 'purple' : 'teal';
     const pid = uid(10);
@@ -1389,12 +1399,15 @@ async function leaveHousehold() {
 
     await dbDelete(`${ROOT}/households/${hid}/parents/${pid}`);
 
-    // Remove every ask this parent made across all weeks
+    // Remove every ask AND claim this parent owned across all weeks so we
+    // don't leave orphan rows that would render inconsistently for whoever
+    // remains in the household.
     const allAsks = await dbGet(`${ROOT}/households/${hid}/asks`);
     if (allAsks) {
         for (const wk of Object.keys(allAsks)) {
             for (const ds of Object.keys(allAsks[wk])) {
-                if (allAsks[wk][ds] && allAsks[wk][ds].asker_id === pid) {
+                const row = allAsks[wk][ds];
+                if (row && (row.asker_id === pid || row.claimer_id === pid)) {
                     await dbDelete(`${ROOT}/households/${hid}/asks/${wk}/${ds}`);
                 }
             }
@@ -1627,11 +1640,17 @@ function slotState(day, slot) {
     const r = state.asks[key];
     if (!r) return { kind: 'unmarked' };
     if (r.claimer_id) {
+        // If the claimer is no longer a parent in this household (e.g. an old
+        // record left over after someone rejoined with a new pid), don't show
+        // it as "the partner" — that diverges across browsers. Render as
+        // unmarked instead so either parent can re-claim.
+        if (!state.parents[r.claimer_id]) return { kind: 'unmarked' };
         return r.claimer_id === state.parentId
             ? { kind: 'you-claimed', ask: r }
             : { kind: 'partner-claimed', ask: r };
     }
     if (!r.asker_id) return { kind: 'unmarked' };
+    if (!state.parents[r.asker_id]) return { kind: 'unmarked' };
     if (r.asker_id === state.parentId) return { kind: 'asked-by-you', ask: r };
     return { kind: 'asked-of-you', ask: r };
 }
@@ -2229,6 +2248,12 @@ async function showJoinFlow(token) {
     const result = await lookupInvite(token);
     if (!result) {
         document.getElementById('joinSubtitle').textContent = 'This code is no longer active.';
+        document.getElementById('joinExpiredBox').style.display = 'block';
+        return;
+    }
+    // Don't let a returning parent become a phantom third member.
+    if (Object.keys(result.household.parents || {}).length >= 2) {
+        document.getElementById('joinSubtitle').textContent = "This household is full. If you're returning, use your Restore code instead.";
         document.getElementById('joinExpiredBox').style.display = 'block';
         return;
     }
