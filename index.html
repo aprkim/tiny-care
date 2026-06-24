@@ -1176,7 +1176,8 @@ let state = {
     lastAsksHash: '',
     lastNotesHash: '',
     lastUpdatedAt: 0,    // most-recent updated_at across all asks this week
-    lastMutationAt: 0    // timestamp of last local write/delete — guards against stale poll overwrites
+    lastMutationAt: 0,   // timestamp of last local write/delete — guards against stale poll overwrites
+    lastResetsSeenAt: 0  // highest reset timestamp we've already accounted for (in-memory)
 };
 
 // ==========================================================================
@@ -1444,7 +1445,7 @@ async function leaveHousehold() {
     localStorage.removeItem(LS_KEYS.parentId);
     localStorage.removeItem(LS_KEYS.name);
     stopPolling();
-    state = { householdId:null, parentId:null, parents:{}, inviteToken:null, inviteExpires:null, weekStart:null, asks:{}, notes:{}, pollTimer:null, lastAsksHash:'', lastNotesHash:'', lastUpdatedAt:0, lastMutationAt:0 };
+    state = { householdId:null, parentId:null, parents:{}, inviteToken:null, inviteExpires:null, weekStart:null, asks:{}, notes:{}, pollTimer:null, lastAsksHash:'', lastNotesHash:'', lastUpdatedAt:0, lastMutationAt:0, lastResetsSeenAt:0 };
 }
 
 async function loadHousehold() {
@@ -1520,7 +1521,7 @@ async function writeDayNote(day, text) {
 }
 
 // Wipe every ask, claim, and note for the currently displayed week. Used
-// from settings when the week's state has gotten out of sync and you'd
+// from the week page when the week's state has gotten out of sync and you'd
 // rather start fresh than fix individual slots.
 async function resetCurrentWeek() {
     const hid = state.householdId;
@@ -1534,13 +1535,38 @@ async function resetCurrentWeek() {
     state.lastNotesHash = JSON.stringify(state.notes);
     state.lastUpdatedAt = now;
     renderGrid({ pulse: true });
-    const [oka, okn] = await Promise.all([
+    const [oka, okn, okr] = await Promise.all([
         dbDelete(`${ROOT}/households/${hid}/asks/${wk}`),
-        dbDelete(`${ROOT}/households/${hid}/notes/${wk}`)
+        dbDelete(`${ROOT}/households/${hid}/notes/${wk}`),
+        // Marker so the partner's poll can toast that the reset happened —
+        // tells them the now-empty grid isn't a bug.
+        dbPut(`${ROOT}/households/${hid}/resets/${wk}`, { by: state.parentId, at: now })
     ]);
+    // Make sure we never toast ourselves about a reset we just performed.
+    if (now > state.lastResetsSeenAt) state.lastResetsSeenAt = now;
     state.lastMutationAt = Date.now();
-    if (!oka || !okn) toast('Reset partially failed. Check connection.');
+    if (!oka || !okn || !okr) toast('Reset partially failed. Check connection.');
     return oka && okn;
+}
+
+function fmtRangeFromIso(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return fmtRange(new Date(y, m - 1, d));
+}
+
+async function fetchResets(silent=false) {
+    const data = await dbGet(`${ROOT}/households/${state.householdId}/resets`);
+    const resets = data || {};
+    let newest = state.lastResetsSeenAt;
+    for (const [wk, rec] of Object.entries(resets)) {
+        if (!rec || typeof rec.at !== 'number') continue;
+        if (!silent && rec.at > state.lastResetsSeenAt && rec.by !== state.parentId) {
+            const who = state.parents[rec.by]?.name || 'Your partner';
+            toast(`${who} reset the week of ${fmtRangeFromIso(wk)}`);
+        }
+        if (rec.at > newest) newest = rec.at;
+    }
+    state.lastResetsSeenAt = newest;
 }
 
 async function deleteDayNote(day) {
@@ -1917,7 +1943,10 @@ function startPolling() {
         if (!partner() || Math.random() < 0.34) {
             await loadHousehold();
         }
-        await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true)]); // update state silently
+        // fetchResets is NOT silent here — newer-than-seen resets by the
+        // partner should pop a toast so they're not staring at a mysteriously
+        // empty week.
+        await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true), fetchResets(false)]);
         // Re-render every tick so partner-join, new asks, and "Updated X ago" all stay fresh.
         if (document.getElementById('weekScreen').classList.contains('active')) {
             renderGrid();
@@ -2350,7 +2379,9 @@ async function enterWeekView() {
     state.weekStart = startOfWeek(new Date());
     state.lastAsksHash = '';
     state.lastNotesHash = '';
-    await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true)]);
+    // Silent fetchResets so we set the high-water mark to the latest existing
+    // reset without toasting historical events on first load.
+    await Promise.all([fetchWeekAsks(true), fetchWeekNotes(true), fetchResets(true)]);
     renderGrid();
     startPolling();
 }
