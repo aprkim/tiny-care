@@ -1094,7 +1094,9 @@
 
         <div class="settings-section">
             <h3>Danger zone</h3>
-            <button class="btn danger-btn" id="leaveBtn">Leave household</button>
+            <button class="btn btn-secondary" id="resetWeekBtn">Reset this week</button>
+            <p class="setting-desc" style="margin-top:8px;" id="resetWeekDesc">Clears all claims, asks, and notes for the current week so you can start it over.</p>
+            <button class="btn danger-btn" id="leaveBtn" style="margin-top:16px;">Leave household</button>
             <p class="setting-desc" style="margin-top:8px;">Removes you from the household. Your partner keeps everything they've claimed.</p>
         </div>
     </div>
@@ -1492,6 +1494,30 @@ async function writeDayNote(day, text) {
     const ok = await dbPut(path, record);
     state.lastMutationAt = Date.now();
     if (!ok) toast('Could not save. Check connection.');
+}
+
+// Wipe every ask, claim, and note for the currently displayed week. Used
+// from settings when the week's state has gotten out of sync and you'd
+// rather start fresh than fix individual slots.
+async function resetCurrentWeek() {
+    const hid = state.householdId;
+    if (!hid) return false;
+    const wk = weekIso();
+    const now = Date.now();
+    state.lastMutationAt = now;
+    state.asks = {};
+    state.notes = {};
+    state.lastAsksHash = JSON.stringify(state.asks);
+    state.lastNotesHash = JSON.stringify(state.notes);
+    state.lastUpdatedAt = now;
+    renderGrid({ pulse: true });
+    const [oka, okn] = await Promise.all([
+        dbDelete(`${ROOT}/households/${hid}/asks/${wk}`),
+        dbDelete(`${ROOT}/households/${hid}/notes/${wk}`)
+    ]);
+    state.lastMutationAt = Date.now();
+    if (!oka || !okn) toast('Reset partially failed. Check connection.');
+    return oka && okn;
 }
 
 async function deleteDayNote(day) {
@@ -1915,6 +1941,10 @@ function renderSettings() {
     const them = partner();
     document.getElementById('settingsName').value = me ? me.name : '';
     document.getElementById('settingsRestoreCode').value = restoreCode();
+    if (state.weekStart) {
+        document.getElementById('resetWeekDesc').textContent =
+            `Clears all claims, asks, and notes for the week of ${fmtRange(state.weekStart)} so you can start it over.`;
+    }
 
     const parentsHtml = [];
     if (me) {
@@ -2481,6 +2511,23 @@ function wireSettings() {
         if (!ok) return;
         await leaveHousehold();
         showEntry();
+    });
+
+    document.getElementById('resetWeekBtn').addEventListener('click', async () => {
+        const range = fmtRange(state.weekStart);
+        const ok = await confirmModal({
+            title: `Reset week of ${range}?`,
+            body: `All claims, asks, and notes for <strong>${escapeHtml(range)}</strong> will be deleted for both you and your partner. This can't be undone.`,
+            confirmLabel: 'Reset week',
+            dangerous: true
+        });
+        if (!ok) return;
+        const okReset = await resetCurrentWeek();
+        if (okReset) {
+            toast(`Week of ${range} reset`);
+            document.getElementById('settingsScreen').classList.remove('active');
+            document.getElementById('weekScreen').classList.add('active');
+        }
     });
 }
 
